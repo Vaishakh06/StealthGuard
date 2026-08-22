@@ -1,0 +1,13 @@
+# AnomalyFlow — Local Application & Dashboard Dependencies
+# Training was performed in Google Colab; this file is for local project use.
+
+numpy
+pandas
+scipy
+scikit-learn
+matplotlib
+seaborn
+torch
+streamlit==1.62.0
+jupyter
+ipykernel
