@@ -1,0 +1,5 @@
+{
+    "project_root": "..",
+    "mitigation_results": "../mitigation/final_mitigation_results.csv",
+    "anomalyflow_config": "../models/evaluation/anomalyflow_config.json"
+}

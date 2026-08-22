@@ -1,0 +1,72 @@
+{
+    "baseline_model": {
+        "test_accuracy": 0.8943196087990664,
+        "test_samples": 338445,
+        "correct_predictions": 302678,
+        "baseline_errors": 35767
+    },
+    "anomalyflow": {
+        "confidence_weight": 0.5,
+        "renyi_weight": 0.5,
+        "low_threshold": 0.25,
+        "high_threshold": 0.4,
+        "error_recall": 0.7693963709564683,
+        "correct_flag_rate": 0.13402031201474834
+    },
+    "decision_states": {
+        "NORMAL": {
+            "count": 270361,
+            "percentage": 79.88328975165831
+        },
+        "SUSPICIOUS": {
+            "count": 37300,
+            "percentage": 11.020993071252345
+        },
+        "HIGH_EVIDENCE": {
+            "count": 30784,
+            "percentage": 9.095717177089336
+        }
+    },
+    "binary_ddos_detection": {
+        "accuracy": 0.9958102498190252,
+        "precision": 0.9972675768664973,
+        "recall": 0.9984207259183524,
+        "f1_score": 0.9978438182360061,
+        "confusion_matrix": [
+            [
+                8914,
+                899
+            ],
+            [
+                519,
+                328113
+            ]
+        ]
+    },
+    "security_severity": {
+        "HIGH": {
+            "count": 30736,
+            "percentage": 9.081534665898447
+        },
+        "INVESTIGATE": {
+            "count": 48,
+            "percentage": 0.014182511190887736
+        },
+        "LOW": {
+            "count": 261669,
+            "percentage": 77.31507335017507
+        },
+        "MEDIUM": {
+            "count": 36607,
+            "percentage": 10.816233065933904
+        },
+        "MONITOR": {
+            "count": 693,
+            "percentage": 0.2047600053184417
+        },
+        "NORMAL": {
+            "count": 8692,
+            "percentage": 2.5682164014832543
+        }
+    }
+}

@@ -1,0 +1,126 @@
+{
+    "notebook": "07_Mitigation_Engine",
+    "input_artifact": "/content/drive/MyDrive/Major_Project/mitigation/anomalyflow_test_results.csv",
+    "output_artifact": "/content/drive/MyDrive/Major_Project/mitigation/final_mitigation_results.csv",
+    "total_test_samples": 338445,
+    "mitigation_policy": {
+        "NORMAL": {
+            "action": "NO_ACTION",
+            "priority": "NONE",
+            "simulation": "No mitigation required"
+        },
+        "MONITOR": {
+            "action": "MONITOR",
+            "priority": "LOW",
+            "simulation": "Traffic monitored for continued suspicious activity"
+        },
+        "INVESTIGATE": {
+            "action": "INVESTIGATE",
+            "priority": "HIGH",
+            "simulation": "Security investigation triggered"
+        },
+        "LOW": {
+            "action": "ALERT_AND_LOG",
+            "priority": "LOW",
+            "simulation": "DDoS alert generated and traffic event logged"
+        },
+        "MEDIUM": {
+            "action": "RATE_LIMIT",
+            "priority": "MEDIUM",
+            "simulation": "Traffic rate limiting simulated"
+        },
+        "HIGH": {
+            "action": "BLOCK_AND_RATE_LIMIT",
+            "priority": "CRITICAL",
+            "simulation": "Traffic blocking and rate limiting simulated"
+        }
+    },
+    "alert_policy": {
+        "NO_ACTION": {
+            "alert_generated": false,
+            "alert_level": "NONE",
+            "alert_type": "NONE"
+        },
+        "MONITOR": {
+            "alert_generated": true,
+            "alert_level": "LOW",
+            "alert_type": "MONITORING"
+        },
+        "INVESTIGATE": {
+            "alert_generated": true,
+            "alert_level": "HIGH",
+            "alert_type": "INVESTIGATION"
+        },
+        "ALERT_AND_LOG": {
+            "alert_generated": true,
+            "alert_level": "LOW",
+            "alert_type": "DDOS_DETECTED"
+        },
+        "RATE_LIMIT": {
+            "alert_generated": true,
+            "alert_level": "MEDIUM",
+            "alert_type": "RATE_LIMIT_TRIGGERED"
+        },
+        "BLOCK_AND_RATE_LIMIT": {
+            "alert_generated": true,
+            "alert_level": "CRITICAL",
+            "alert_type": "BLOCK_TRIGGERED"
+        }
+    },
+    "security_severity_counts": {
+        "LOW": 261669,
+        "MEDIUM": 36607,
+        "HIGH": 30736,
+        "NORMAL": 8692,
+        "MONITOR": 693,
+        "INVESTIGATE": 48
+    },
+    "mitigation_action_counts": {
+        "ALERT_AND_LOG": 261669,
+        "RATE_LIMIT": 36607,
+        "BLOCK_AND_RATE_LIMIT": 30736,
+        "NO_ACTION": 8692,
+        "MONITOR": 693,
+        "INVESTIGATE": 48
+    },
+    "alert_statistics": {
+        "alerts_generated": 329753,
+        "no_alert_required": 8692,
+        "alert_rate_percent": 97.4318
+    },
+    "simulation_statistics": {
+        "simulated_blocking": 30736,
+        "simulated_rate_limiting": 67343,
+        "simulated_monitoring": 693,
+        "investigations_required": 48,
+        "simulated_blocking_rate_percent": 9.0815,
+        "rate_limiting_rate_percent": 19.8978,
+        "monitoring_rate_percent": 0.2048,
+        "investigation_rate_percent": 0.0142
+    },
+    "output_schema": [
+        "Test_Index",
+        "True_Label",
+        "Predicted_Label",
+        "Confidence",
+        "Confidence_Uncertainty",
+        "Renyi_Evidence",
+        "Confidence_Normalized",
+        "Renyi_Normalized",
+        "AnomalyFlow_Score",
+        "Decision_State",
+        "Security_Severity",
+        "Mitigation_Action",
+        "Mitigation_Priority",
+        "Mitigation_Simulation",
+        "Alert_Generated",
+        "Alert_Level",
+        "Alert_Type",
+        "Alert_Message",
+        "Simulated_Block",
+        "Simulated_Rate_Limit",
+        "Simulated_Monitoring",
+        "Simulated_Investigation",
+        "Mitigation_Outcome"
+    ]
+}

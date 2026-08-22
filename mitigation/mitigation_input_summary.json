@@ -1,0 +1,24 @@
+{
+    "total_test_samples": 338445,
+    "decision_state_counts": {
+        "NORMAL": 270361,
+        "SUSPICIOUS": 37300,
+        "HIGH_EVIDENCE": 30784
+    },
+    "security_severity_counts": {
+        "LOW": 261669,
+        "MEDIUM": 36607,
+        "HIGH": 30736,
+        "NORMAL": 8692,
+        "MONITOR": 693,
+        "INVESTIGATE": 48
+    },
+    "baseline_accuracy": 0.8943196087990664,
+    "anomalyflow_score_statistics": {
+        "mean": 0.1469104951766718,
+        "median": 0.08170581170153578,
+        "minimum": 0.0068550517828396,
+        "maximum": 0.6456887175997341
+    },
+    "sample_level_output_file": "/content/drive/MyDrive/Major_Project/mitigation/anomalyflow_test_results.csv"
+}
