@@ -1,0 +1,100 @@
+{
+  "source": "Notebook 06 exact reconstruction",
+  "split": {
+    "first_test_size": 0.2,
+    "first_random_state": 42,
+    "second_test_size": 0.5,
+    "second_random_state": 42,
+    "stratified": true
+  },
+  "renyi_columns": [
+    "Flow Duration_Renyi",
+    "Flow Bytes/s_Renyi",
+    "Flow Packets/s_Renyi",
+    "Packet Length Mean_Renyi",
+    "Packet Length Std_Renyi",
+    "Total Fwd Packets_Renyi",
+    "Total Backward Packets_Renyi",
+    "Average Packet Size_Renyi"
+  ],
+  "validation_renyi_standard_scaler": {
+    "mean": [
+      0.5663168929106183,
+      1.1631704088761246,
+      0.7586302545005891,
+      0.8307690955080225,
+      0.21805958200827624,
+      0.383822748525773,
+      0.0807820019869471,
+      1.0479289402153267
+    ],
+    "scale": [
+      0.49189103474836493,
+      0.7605788745503008,
+      0.3184970642264534,
+      0.9744303067812389,
+      0.5125947487140927,
+      0.623531900731054,
+      0.2855479720072371,
+      0.9289127611620979
+    ]
+  },
+  "test_renyi_standard_scaler": {
+    "mean": [
+      0.5660294448540836,
+      1.1632693022539584,
+      0.7580908010723371,
+      0.8314487614400966,
+      0.2178179698727766,
+      0.38437101568990123,
+      0.08128220057660389,
+      1.0493761193200641
+    ],
+    "scale": [
+      0.49220641202866483,
+      0.7608647158794115,
+      0.3193223793157513,
+      0.975348434991271,
+      0.5122193749453191,
+      0.624119168318226,
+      0.2876297940094332,
+      0.9295952438579229
+    ]
+  },
+  "confidence_minmax_scaler": {
+    "min": [
+      0.0
+    ],
+    "max": [
+      0.7106185555458069
+    ],
+    "scale": [
+      1.4072247743606567
+    ],
+    "min_offset": [
+      0.0
+    ]
+  },
+  "renyi_evidence_minmax_scaler": {
+    "min": [
+      0.19070898455469495
+    ],
+    "max": [
+      3.9552724096248744
+    ],
+    "scale": [
+      0.26563505168766227
+    ],
+    "min_offset": [
+      -0.05065899096948798
+    ]
+  },
+  "thresholds": {
+    "low": 0.25,
+    "high": 0.4
+  },
+  "weights": {
+    "confidence": 0.5,
+    "renyi": 0.5
+  }
+}
