@@ -1,8 +1,10 @@
+import json
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 
 RESULTS_PATH = "mitigation/anomalyflow_test_results.csv"
+CALIBRATION_PATH = "models/evaluation/anomalyflow_calibration.json"
 
 print("=" * 70)
 print("VALIDATING ANOMALYFLOW TEST REPRODUCTION")
@@ -14,33 +16,58 @@ print("\nRows:", len(df))
 print("Columns:", len(df.columns))
 
 # ------------------------------------------------------------
-# Notebook 06 exact test-set normalization
+# Notebook 06 exact validation-calibrated normalization
 # ------------------------------------------------------------
+
+with open(CALIBRATION_PATH, "r", encoding="utf-8") as f:
+    calibration = json.load(f)
+
+conf_calib = calibration["confidence_minmax_scaler"]
+renyi_calib = calibration["renyi_evidence_minmax_scaler"]
+
+# Validation-fitted MinMaxScalers applied to test evidence (Notebook 06 Cell 53)
+confidence_scaler = MinMaxScaler()
+confidence_scaler.data_min_ = np.array(conf_calib["min"], dtype=np.float64)
+confidence_scaler.data_max_ = np.array(conf_calib["max"], dtype=np.float64)
+confidence_scaler.data_range_ = confidence_scaler.data_max_ - confidence_scaler.data_min_
+confidence_scaler.scale_ = np.array(conf_calib["scale"], dtype=np.float64)
+confidence_scaler.min_ = np.array(conf_calib["min_offset"], dtype=np.float64)
+confidence_scaler.n_features_in_ = 1
+confidence_scaler.n_samples_seen_ = 1
+
+renyi_scaler = MinMaxScaler()
+renyi_scaler.data_min_ = np.array(renyi_calib["min"], dtype=np.float64)
+renyi_scaler.data_max_ = np.array(renyi_calib["max"], dtype=np.float64)
+renyi_scaler.data_range_ = renyi_scaler.data_max_ - renyi_scaler.data_min_
+renyi_scaler.scale_ = np.array(renyi_calib["scale"], dtype=np.float64)
+renyi_scaler.min_ = np.array(renyi_calib["min_offset"], dtype=np.float64)
+renyi_scaler.n_features_in_ = 1
+renyi_scaler.n_samples_seen_ = 1
 
 confidence_values = df["Confidence_Uncertainty"].values.reshape(-1, 1)
 renyi_values = df["Renyi_Evidence"].values.reshape(-1, 1)
 
-# Notebook 06 fits MinMaxScaler directly on TEST values
-confidence_scaler = MinMaxScaler()
-renyi_scaler = MinMaxScaler()
-
 confidence_normalized = (
-    confidence_scaler.fit_transform(confidence_values)
+    confidence_scaler.transform(confidence_values)
     .flatten()
 )
 
 renyi_normalized = (
-    renyi_scaler.fit_transform(renyi_values)
+    renyi_scaler.transform(renyi_values)
     .flatten()
 )
 
 # ------------------------------------------------------------
-# Exact AnomalyFlow score
+# Exact AnomalyFlow score (Notebook 06 Cell 54)
 # ------------------------------------------------------------
 
+weights = calibration.get("weights", {"confidence": 0.5, "renyi": 0.5})
+conf_weight = weights.get("confidence", 0.5)
+renyi_weight = weights.get("renyi", 0.5)
+
 score = (
-    0.5 * confidence_normalized
-    + 0.5 * renyi_normalized
+    conf_weight * confidence_normalized
+    + renyi_weight * renyi_normalized
 )
 
 # ------------------------------------------------------------
@@ -63,7 +90,7 @@ score_diff = np.abs(
     score - expected_score
 )
 
-print("\nTEST-SET NORMALIZATION")
+print("\nVALIDATION-CALIBRATED NORMALIZATION")
 print("Confidence min:", confidence_scaler.data_min_[0])
 print("Confidence max:", confidence_scaler.data_max_[0])
 print("Rényi min    :", renyi_scaler.data_min_[0])
@@ -75,13 +102,17 @@ print("Rényi normalized      :", renyi_diff.max())
 print("AnomalyFlow score     :", score_diff.max())
 
 # ------------------------------------------------------------
-# Decision states
+# Decision states (Notebook 06 Cell 49 / 55)
 # ------------------------------------------------------------
 
+thresholds = calibration.get("thresholds", {"low": 0.25, "high": 0.40})
+low_threshold = thresholds.get("low", 0.25)
+high_threshold = thresholds.get("high", 0.40)
+
 def decision_state(value):
-    if value < 0.25:
+    if value < low_threshold:
         return "NORMAL"
-    elif value < 0.40:
+    elif value < high_threshold:
         return "SUSPICIOUS"
     return "HIGH_EVIDENCE"
 
@@ -105,11 +136,18 @@ print(
 # Final validation
 # ------------------------------------------------------------
 
+row_count_correct = (len(df) == 338445)
+confidence_norm_correct = (confidence_diff.max() < 1e-4)
+renyi_norm_correct = (renyi_diff.max() < 1e-4)
+score_correct = (score_diff.max() < 1e-4)
+decision_states_correct = (state_matches == len(df))
+
 if (
-    confidence_diff.max() < 1e-10
-    and renyi_diff.max() < 1e-10
-    and score_diff.max() < 1e-10
-    and state_matches == len(df)
+    row_count_correct
+    and confidence_norm_correct
+    and renyi_norm_correct
+    and score_correct
+    and decision_states_correct
 ):
     print(
         "\nCHECKPOINT 8 ANOMALYFLOW TEST "

@@ -30,21 +30,29 @@ print("RECONSTRUCTING ANOMALYFLOW VALIDATION CALIBRATION")
 print("=" * 70)
 
 # ------------------------------------------------------------
-# 1. Load engineered dataset
+# 1. Load frozen model/scaler/encoder
+# ------------------------------------------------------------
+adapter = InferenceAdapter()
+
+# ------------------------------------------------------------
+# 2. Load engineered dataset & match Notebook 06 preprocessing
 # ------------------------------------------------------------
 print("\nLoading dataset...")
 df = pd.read_pickle(DATASET_PATH)
 
+# Notebook 06 Cell 16: Normalize "UDPLag" to "UDP-lag"
+df["Label"] = df["Label"].replace({"UDPLag": "UDP-lag"})
+
 feature_columns = [c for c in df.columns if c != "Label"]
 
 X = df[feature_columns].values
-y = df["Label"].values
+y = adapter.label_encoder.transform(df["Label"])
 
 print("Dataset shape:", X.shape)
 print("Feature count:", len(feature_columns))
 
 # ------------------------------------------------------------
-# 2. Reproduce Notebook 06 exact split
+# 3. Reproduce Notebook 06 exact split
 # ------------------------------------------------------------
 X_train, X_temp, y_train, y_temp = train_test_split(
     X,
@@ -65,11 +73,6 @@ X_val, X_test, y_val, y_test = train_test_split(
 print("Training:", X_train.shape)
 print("Validation:", X_val.shape)
 print("Test:", X_test.shape)
-
-# ------------------------------------------------------------
-# 3. Load frozen model/scaler/encoder
-# ------------------------------------------------------------
-adapter = InferenceAdapter()
 
 # ------------------------------------------------------------
 # 4. Generate validation model predictions
@@ -143,11 +146,6 @@ test_renyi_evidence = np.mean(
     axis=1
 )
 
-# Notebook 06 then fits MinMax on VALIDATION evidence
-val_renyi_scaler_final = MinMaxScaler()
-val_renyi_scaler_final.fit(
-    val_renyi_evidence.reshape(-1, 1)
-)
 
 # ------------------------------------------------------------
 # 6. Reconstruct exact validation MinMax scalers
