@@ -1,0 +1,4 @@
+{"timestamp": "2026-10-21T14:25:09.884748+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 45}
+Block active for up to 45 seconds.
+{"timestamp": "2026-10-21T14:25:10.010691+00:00", "event": "controller_interrupted", "signal": "SIGTERM"}
+{"timestamp": "2026-10-21T14:25:10.257189+00:00", "event": "block_removed"}

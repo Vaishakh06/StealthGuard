@@ -55,3 +55,19 @@ env/
 mitigation/final_mitigation_results.csv
 PROJECT_DECISIONS.md
 PROJECT_PROGRESS.md
+
+# Network lab captures and temporary artifacts
+*.pcap
+*.pcapng
+*.bak
+__pycache__/
+
+# macOS metadata
+.DS_Store
+
+# Generated traffic captures and backups
+*.pcap
+*.pcapng
+*.bak
+__pycache__/
+.DS_Store

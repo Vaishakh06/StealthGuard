@@ -1,0 +1,11 @@
+1/10 FAILED: URLError: <urlopen error timed out>
+2/10 FAILED: URLError: <urlopen error timed out>
+3/10 FAILED: URLError: <urlopen error timed out>
+4/10 FAILED: URLError: <urlopen error timed out>
+5/10 FAILED: URLError: <urlopen error timed out>
+6/10 FAILED: URLError: <urlopen error timed out>
+7/10 FAILED: URLError: <urlopen error timed out>
+8/10 FAILED: URLError: <urlopen error timed out>
+9/10 FAILED: URLError: <urlopen error timed out>
+10/10 FAILED: URLError: <urlopen error timed out>
+SUMMARY success=0 failed=10

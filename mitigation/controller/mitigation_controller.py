@@ -1,189 +1,155 @@
+#!/usr/bin/env python3
+"""Temporary firewall mitigation controller for the isolated project lab."""
+
+import argparse
 import json
-import logging
+import signal
+import subprocess
+import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from mitigation_policy import get_recommendation
+GATEWAY = "cp-gateway"
+FAMILY = "inet"
+TABLE = "mitigation"
+CHAIN = "forward"
 
-ROOT = Path(__file__).resolve().parents[2]
+CLIENT_IP = "172.28.0.10"
+SERVER_IP = "172.29.0.10"
+SERVER_PORT = 8080
+RULE_COMMENT = "temporary-lab-mitigation"
 
-LOG_DIR = ROOT / "mitigation" / "logs"
-LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE = Path(__file__).resolve().parent / "mitigation_actions.jsonl"
 
-EVENT_LOG = LOG_DIR / "mitigation_events.jsonl"
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-)
-
-logger = logging.getLogger("mitigation-controller")
-
-
-ALLOWED_ACTIONS = {
-    "NO_ACTION",
-    "MONITOR",
-    "INVESTIGATE",
-    "ALERT_AND_LOG",
-    "RATE_LIMIT",
-    "BLOCK_AND_RATE_LIMIT",
-}
+stop_event = threading.Event()
+received_signal = None
 
 
-class MitigationController:
+def handle_signal(signum, _frame):
+    """Request orderly shutdown; cleanup runs in main's finally block."""
+    global received_signal
+    received_signal = signal.Signals(signum).name
+    stop_event.set()
 
-    def __init__(self, dry_run=True):
-        self.dry_run = dry_run
 
-    def process_event(self, event):
-        """
-        Process one detection event.
+def run_nft(*args):
+    """Run nft inside the gateway and report useful errors."""
+    result = subprocess.run(
+        ["docker", "exec", GATEWAY, "nft", *args],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        message = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(f"nft {' '.join(args)} failed: {message}")
+    return result.stdout
 
-        Expected event fields:
-            client
-            server
-            port
-            predicted_label
-            confidence
-            anomalyflow_score
-            decision_state
-            security_severity
-        """
 
-        required_fields = {
-            "client",
-            "server",
-            "port",
-            "predicted_label",
-            "confidence",
-            "anomalyflow_score",
-            "decision_state",
-            "security_severity",
-        }
+def log_event(event, **details):
+    record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "event": event,
+        **details,
+    }
+    with LOG_FILE.open("a", encoding="utf-8") as file:
+        file.write(json.dumps(record) + "\n")
+    print(json.dumps(record), flush=True)
 
-        missing = required_fields - set(event.keys())
 
-        if missing:
-            raise ValueError(
-                f"Missing required fields: {sorted(missing)}"
-            )
+def ensure_firewall_chain():
+    """Create only our dedicated table and chain if missing."""
+    tables = run_nft("list", "tables")
+    if f"table {FAMILY} {TABLE}" not in tables:
+        run_nft("add", "table", FAMILY, TABLE)
 
-        recommendation = get_recommendation(
-            event["security_severity"]
+    chains = run_nft("list", "table", FAMILY, TABLE)
+    if f"chain {CHAIN} " not in chains:
+        run_nft(
+            "add", "chain", FAMILY, TABLE, CHAIN,
+            "{", "type", "filter", "hook", "forward",
+            "priority", "filter", ";", "policy", "accept", ";", "}"
         )
 
-        if recommendation.action not in ALLOWED_ACTIONS:
-            raise ValueError(
-                f"Action not allowed: {recommendation.action}"
-            )
 
-        timestamp = datetime.now(timezone.utc).isoformat()
+def remove_our_rules():
+    """Delete only rules bearing this controller's unique comment."""
+    output = run_nft(
+        "-a", "list", "chain", FAMILY, TABLE, CHAIN
+    )
+    handles = []
+    for line in output.splitlines():
+        if RULE_COMMENT in line and "handle " in line:
+            handles.append(line.rsplit("handle ", 1)[1].strip())
 
-        result = {
-            "timestamp": timestamp,
-            "status": "DRY_RUN" if self.dry_run else "PENDING",
-            "client": event["client"],
-            "server": event["server"],
-            "port": event["port"],
-            "predicted_label": event["predicted_label"],
-            "confidence": event["confidence"],
-            "anomalyflow_score": event["anomalyflow_score"],
-            "decision_state": event["decision_state"],
-            "security_severity": event["security_severity"],
-            "mitigation_action": recommendation.action,
-            "mitigation_priority": recommendation.priority,
-            "alert_generated": recommendation.alert_generated,
-            "alert_level": recommendation.alert_level,
-            "alert_type": recommendation.alert_type,
-            "mitigation_outcome": (
-                "SIMULATED"
-                if self.dry_run
-                else "NOT_APPLIED"
-            ),
-        }
-
-        self._write_event(result)
-
-        logger.info(
-            "MITIGATION | severity=%s | action=%s | "
-            "client=%s | server=%s:%s | status=%s",
-            result["security_severity"],
-            result["mitigation_action"],
-            result["client"],
-            result["server"],
-            result["port"],
-            result["status"],
+    for handle in handles:
+        run_nft(
+            "delete", "rule", FAMILY, TABLE, CHAIN,
+            "handle", handle
         )
 
-        return result
 
-    @staticmethod
-    def _write_event(event):
-        with EVENT_LOG.open(
-            "a",
-            encoding="utf-8",
-        ) as f:
-            f.write(
-                json.dumps(
-                    event,
-                    default=str,
-                )
-                + "\n"
-            )
-
-
-def run_test():
-
-    controller = MitigationController(
-        dry_run=True
+def add_block():
+    run_nft(
+        "add", "rule", FAMILY, TABLE, CHAIN,
+        "ip", "saddr", CLIENT_IP,
+        "ip", "daddr", SERVER_IP,
+        "tcp", "dport", str(SERVER_PORT),
+        "counter", "drop",
+        "comment", RULE_COMMENT
     )
 
-    test_events = [
-        {
-            "client": "172.28.0.10",
-            "server": "172.29.0.10",
-            "port": 8080,
-            "predicted_label": "DrDoS_UDP",
-            "confidence": 0.91,
-            "anomalyflow_score": 0.18,
-            "decision_state": "NORMAL",
-            "security_severity": "LOW",
-        },
-        {
-            "client": "172.28.0.11",
-            "server": "172.29.0.10",
-            "port": 8080,
-            "predicted_label": "DrDoS_UDP",
-            "confidence": 0.82,
-            "anomalyflow_score": 0.34,
-            "decision_state": "SUSPICIOUS",
-            "security_severity": "MEDIUM",
-        },
-        {
-            "client": "172.28.0.12",
-            "server": "172.29.0.10",
-            "port": 8080,
-            "predicted_label": "DrDoS_UDP",
-            "confidence": 0.97,
-            "anomalyflow_score": 0.67,
-            "decision_state": "HIGH_EVIDENCE",
-            "security_severity": "HIGH",
-        },
-    ]
 
-    for event in test_events:
-        result = controller.process_event(event)
+def main():
+    parser = argparse.ArgumentParser(
+        description="Apply a temporary, allowlisted lab firewall block."
+    )
+    parser.add_argument("--duration", type=int, default=15)
+    args = parser.parse_args()
 
-        print(
-            json.dumps(
-                result,
-                indent=2
-            )
+    if not 1 <= args.duration <= 60:
+        parser.error("Duration must be between 1 and 60 seconds.")
+
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
+    applied = False
+
+    try:
+        ensure_firewall_chain()
+        # Remove stale rules from an earlier interrupted run.
+        remove_our_rules()
+
+        add_block()
+        applied = True
+
+        log_event(
+            "block_applied",
+            client=CLIENT_IP,
+            server=SERVER_IP,
+            port=SERVER_PORT,
+            duration_seconds=args.duration,
         )
+        print(f"Block active for up to {args.duration} seconds.", flush=True)
 
-    print()
-    print("CHECKPOINT 4 DRY-RUN CONTROLLER PASSED")
+        # Returns early when SIGINT or SIGTERM requests shutdown.
+        was_interrupted = stop_event.wait(args.duration)
+        if was_interrupted:
+            log_event("controller_interrupted", signal=received_signal)
+
+    except Exception as exc:
+        log_event("controller_error", error=str(exc))
+        raise
+
+    finally:
+        if applied:
+            try:
+                remove_our_rules()
+                log_event("block_removed")
+            except Exception as exc:
+                log_event("cleanup_error", error=str(exc))
+                raise
 
 
 if __name__ == "__main__":
-    run_test()
+    main()

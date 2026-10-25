@@ -1,0 +1,3 @@
+{"timestamp": "2026-10-21T14:13:50.931260+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 2}
+Block active for 2 seconds.
+{"timestamp": "2026-10-21T14:13:53.203307+00:00", "event": "block_removed"}

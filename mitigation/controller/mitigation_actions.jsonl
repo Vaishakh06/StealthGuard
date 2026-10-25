@@ -1,0 +1,13 @@
+{"timestamp": "2026-10-15T14:42:04.690609+00:00", "event": "controller_error", "error": "Command '['docker', 'exec', 'cp-gateway', 'nft', 'list', 'chain', 'inet', 'mitigation', 'forward']' returned non-zero exit status 1."}
+{"timestamp": "2026-10-15T14:42:04.829467+00:00", "event": "cleanup_error", "error": "Command '['docker', 'exec', 'cp-gateway', 'nft', '-a', 'list', 'chain', 'inet', 'mitigation', 'forward']' returned non-zero exit status 1."}
+{"timestamp": "2026-10-15T14:47:46.302474+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 15}
+{"timestamp": "2026-10-15T14:48:01.564532+00:00", "event": "block_removed"}
+{"timestamp": "2026-10-15T14:52:45.573488+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 15}
+{"timestamp": "2026-10-15T14:53:00.778705+00:00", "event": "block_removed"}
+{"timestamp": "2026-10-21T14:08:16.690698+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 45}
+{"timestamp": "2026-10-21T14:09:01.955334+00:00", "event": "block_removed"}
+{"timestamp": "2026-10-21T14:13:50.931260+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 2}
+{"timestamp": "2026-10-21T14:13:53.203307+00:00", "event": "block_removed"}
+{"timestamp": "2026-10-21T14:25:09.884748+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 45}
+{"timestamp": "2026-10-21T14:25:10.010691+00:00", "event": "controller_interrupted", "signal": "SIGTERM"}
+{"timestamp": "2026-10-21T14:25:10.257189+00:00", "event": "block_removed"}
