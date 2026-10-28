@@ -1,0 +1,36 @@
+{
+  "required_fields": [
+    "event_id",
+    "timestamp",
+    "source_ip",
+    "destination_ip",
+    "destination_port",
+    "predicted_class",
+    "confidence",
+    "anomalyflow_score",
+    "decision_state",
+    "severity",
+    "recommended_action",
+    "dry_run"
+  ],
+  "allowed_actions": [
+    "NO_ACTION",
+    "MONITOR",
+    "INVESTIGATE",
+    "ALERT_AND_LOG",
+    "RATE_LIMIT",
+    "BLOCK_AND_RATE_LIMIT"
+  ],
+  "allowed_severities": [
+    "NONE",
+    "LOW",
+    "MEDIUM",
+    "HIGH",
+    "CRITICAL"
+  ],
+  "allowed_decision_states": [
+    "NORMAL",
+    "SUSPICIOUS",
+    "HIGH_EVIDENCE"
+  ]
+}

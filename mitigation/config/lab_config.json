@@ -1,0 +1,8 @@
+{
+  "allowed_source_networks": [
+    "172.28.0.0/24"
+  ],
+  "allowed_destination_networks": [
+    "172.29.0.0/24"
+  ]
+}

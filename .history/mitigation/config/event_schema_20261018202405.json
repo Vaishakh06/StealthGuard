@@ -1,0 +1,14 @@
+{
+  "event_id": "string",
+  "timestamp": "ISO-8601 timestamp",
+  "source_ip": "string",
+  "destination_ip": "string",
+  "destination_port": "integer",
+  "predicted_class": "string",
+  "confidence": "float",
+  "anomalyflow_score": "float",
+  "decision_state": "string",
+  "severity": "string",
+  "recommended_action": "string",
+  "dry_run": "boolean"
+}
