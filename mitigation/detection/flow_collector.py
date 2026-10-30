@@ -1,12 +1,15 @@
 import time
-from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
+import pandas as pd
 from scapy.all import IP, TCP, UDP, sniff
+
+from mitigation.detection.inference_adapter import InferenceAdapter
 
 
 FLOW_TIMEOUT = 5.0
+WINDOW_SIZE = 100
 
 STAT_FEATURES = [
     "Flow Duration",
@@ -84,6 +87,7 @@ class Flow:
 
         if packet_count > 1:
             mean = mean_packet_length
+
             variance = sum(
                 (length - mean) ** 2
                 for length in self.packet_lengths
@@ -112,15 +116,6 @@ class Flow:
 class FlowCollector:
     """
     Converts captured packets into bidirectional flow records.
-
-    Flow key:
-        source IP
-        destination IP
-        source port
-        destination port
-        protocol
-
-    Reverse traffic is associated with the same flow.
     """
 
     def __init__(self, flow_timeout: float = FLOW_TIMEOUT):
@@ -156,7 +151,13 @@ class FlowCollector:
         )
 
     @staticmethod
-    def _canonical_key(src_ip, dst_ip, src_port, dst_port, protocol):
+    def _canonical_key(
+        src_ip,
+        dst_ip,
+        src_port,
+        dst_port,
+        protocol,
+    ):
         forward = (
             src_ip,
             dst_ip,
@@ -184,7 +185,13 @@ class FlowCollector:
         if info is None:
             return None
 
-        src_ip, dst_ip, src_port, dst_port, protocol = info
+        (
+            src_ip,
+            dst_ip,
+            src_port,
+            dst_port,
+            protocol,
+        ) = info
 
         forward_key, reverse_key = self._canonical_key(
             src_ip,
@@ -238,14 +245,84 @@ class FlowCollector:
         return completed
 
 
-def packet_handler(packet):
+# ============================================================
+# LIVE DETECTION INTEGRATION
+# ============================================================
+
+class LiveDetectionPipeline:
     """
-    Simple standalone handler used by the live capture test.
+    Buffers completed flow records into 100-flow windows
+    and sends each window through the existing frozen
+    InferenceAdapter.
     """
 
+    def __init__(self):
+        self.inference = InferenceAdapter()
+        self.flow_buffer: List[Dict[str, float]] = []
+
+    def add_flow(self, flow: Flow):
+        features = flow.to_features()
+
+        self.flow_buffer.append(features)
+
+        print(
+            f"\nCompleted flow added to detection buffer: "
+            f"{len(self.flow_buffer)}/{WINDOW_SIZE}"
+        )
+
+        if len(self.flow_buffer) >= WINDOW_SIZE:
+            self.run_inference()
+
+    def run_inference(self):
+        window = self.flow_buffer[:WINDOW_SIZE]
+
+        self.flow_buffer = self.flow_buffer[WINDOW_SIZE:]
+
+        flow_window = pd.DataFrame(
+            window,
+            columns=STAT_FEATURES,
+        )
+
+        print("\n" + "=" * 70)
+        print("LIVE DETECTION WINDOW READY")
+        print("=" * 70)
+
+        try:
+            result = self.inference.predict_window(
+                flow_window
+            )
+
+            print("\nLIVE INFERENCE RESULT")
+            print("-" * 70)
+            print(result)
+
+        except Exception as exc:
+            print("\nLIVE INFERENCE ERROR")
+            print("-" * 70)
+            print(f"{type(exc).__name__}: {exc}")
+
+
+def handle_completed_flow(flow):
+    features = flow.to_features()
+
+    # Ignore incomplete one-packet flows
+    if features["Total Fwd Packets"] + features["Total Backward Packets"] < 2:
+        print("\nIGNORING INCOMPLETE FLOW")
+        print("-" * 60)
+        print(features)
+        return
+
+    print("\nCOMPLETED FLOW")
+    print("-" * 60)
+    print(features)
+
+    detection_pipeline.add_flow(flow)
+
+
+def packet_handler(packet):
     timestamp = float(packet.time)
 
-    flow = collector.process_packet(
+    collector.process_packet(
         packet,
         timestamp=timestamp,
     )
@@ -253,15 +330,15 @@ def packet_handler(packet):
     expired = collector.expire_flows(timestamp)
 
     for completed_flow in expired:
-        print("\nCOMPLETED FLOW")
-        print("-" * 60)
-        print(completed_flow.to_features())
+        handle_completed_flow(completed_flow)
 
 
 def main():
     global collector
+    global detection_pipeline
 
     collector = FlowCollector()
+    detection_pipeline = LiveDetectionPipeline()
 
     print("=" * 70)
     print("STEALTHGUARD LIVE FLOW COLLECTOR")
@@ -269,14 +346,27 @@ def main():
 
     print("\nInterface: cp-gateway eth1")
     print("Capturing client-side traffic...")
+    print("100 completed flows -> frozen ML inference")
     print("Press Ctrl+C to stop.\n")
 
     try:
-        sniff(
+        while True:
+            sniff(
             iface="eth1",
             prn=packet_handler,
             store=False,
+            timeout=1,
         )
+        current_time = time.time()
+
+        expired = collector.expire_flows(
+                current_time
+            )
+
+        for completed_flow in expired:
+                handle_completed_flow(
+                    completed_flow
+                )
 
     except PermissionError:
         print("\nERROR: Packet capture requires root privileges.")
@@ -288,9 +378,7 @@ def main():
         completed = collector.flush()
 
         for flow in completed:
-            print("\nFINAL FLOW")
-            print("-" * 60)
-            print(flow.to_features())
+            handle_completed_flow(flow)
 
 
 if __name__ == "__main__":
