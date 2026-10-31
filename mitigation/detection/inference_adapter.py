@@ -18,8 +18,11 @@ This module intentionally does NOT:
 Those components will be added in later checkpoints.
 """
 
+import json
+import os
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict, Optional
 
 import joblib
 import numpy as np
@@ -633,7 +636,8 @@ class InferenceAdapter:
 
     def predict_from_engineered_features(
         self,
-        engineered_features: pd.DataFrame
+        engineered_features: pd.DataFrame,
+        diagnostic_base_features: Optional[pd.DataFrame] = None,
     ) -> Dict[str, Any]:
         """
         Run the frozen model on one or more rows of
@@ -789,6 +793,67 @@ class InferenceAdapter:
                 "probabilities":
                     probabilities[i].tolist()
             })
+
+        if (
+            os.getenv("STEALTHGUARD_CAPTURE_INFERENCE_DIAGNOSTICS")
+            == "1"
+            and diagnostic_base_features is not None
+        ):
+            timestamp = datetime.now(timezone.utc)
+            output_dir = PROJECT_ROOT / "diagnostics" / "live_inference"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output_path = output_dir / (
+                f"inference_{timestamp.strftime('%Y%m%dT%H%M%S_%fZ')}.json"
+            )
+
+            class_labels = [
+                str(label)
+                for label in self.label_encoder.classes_
+            ]
+            diagnostic = {
+                "captured_at": timestamp.isoformat(),
+                "base_flow_features": {
+                    "columns": list(diagnostic_base_features.columns),
+                    "rows": diagnostic_base_features.to_numpy().tolist(),
+                },
+                "engineered_features": {
+                    "columns": list(FEATURE_COLUMNS),
+                    "rows": engineered_features[
+                        FEATURE_COLUMNS
+                    ].to_numpy().tolist(),
+                },
+                "scaled_features": {
+                    "columns": list(FEATURE_COLUMNS),
+                    "rows": X_scaled.tolist(),
+                },
+                "class_probabilities": [
+                    {
+                        label: float(probability)
+                        for label, probability in zip(
+                            class_labels,
+                            probability_row,
+                        )
+                    }
+                    for probability_row in probabilities
+                ],
+                "predictions": [
+                    {
+                        "predicted_label": result["predicted_class"],
+                        "confidence": result["confidence"],
+                    }
+                    for result in results
+                ],
+            }
+
+            with output_path.open("w", encoding="utf-8") as diagnostic_file:
+                json.dump(
+                    diagnostic,
+                    diagnostic_file,
+                    indent=2,
+                    allow_nan=False,
+                )
+
+            print(f"Inference diagnostics saved to: {output_path}")
 
         return {
             "results": results,

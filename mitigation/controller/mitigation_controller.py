@@ -101,10 +101,13 @@ class MitigationController:
                     status = "APPLIED"
                     outcome = "BLOCK_APPLIED"
                 else:
-                    raise NotImplementedError(
-                        "RATE_LIMIT is not implemented in the verified "
-                        "firewall controller."
+                    firewall_result = firewall_controller.apply_temporary_rate_limit(
+                        duration=30,
+                        rate=20,
+                        burst=40,
                     )
+                    status = "APPLIED"
+                    outcome = "RATE_LIMIT_APPLIED"
 
         else:
             raise ValueError(

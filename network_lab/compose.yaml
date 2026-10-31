@@ -24,6 +24,8 @@ services:
     networks:
       client_net:
         ipv4_address: 172.28.0.10
+    volumes:
+      - ./attack_generator:/workspace/attack_generator
     command:
       - sh
       - -c

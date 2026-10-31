@@ -19,6 +19,7 @@ CLIENT_IP = "172.28.0.10"
 SERVER_IP = "172.29.0.10"
 SERVER_PORT = 8080
 RULE_COMMENT = "temporary-lab-mitigation"
+RATE_LIMIT_RULE_COMMENT = "temporary-lab-rate-limit"
 
 LOG_FILE = Path(__file__).resolve().parent / "mitigation_actions.jsonl"
 
@@ -98,6 +99,75 @@ def add_block():
         "counter", "drop",
         "comment", RULE_COMMENT
     )
+
+def remove_rate_limit_rules():
+    """Remove only this controller's temporary rate-limit rules."""
+    output = run_nft(
+        "-a", "list", "chain", FAMILY, TABLE, CHAIN
+    )
+
+    handles = []
+    for line in output.splitlines():
+        if RATE_LIMIT_RULE_COMMENT in line and "handle " in line:
+            handles.append(line.rsplit("handle ", 1)[1].strip())
+
+    for handle in handles:
+        run_nft(
+            "delete", "rule", FAMILY, TABLE, CHAIN,
+            "handle", handle
+        )
+
+
+def add_rate_limit(rate=20, burst=40):
+    run_nft(
+        "add", "rule", FAMILY, TABLE, CHAIN,
+        "ip", "saddr", CLIENT_IP,
+        "ip", "daddr", SERVER_IP,
+        "tcp", "dport", str(SERVER_PORT),
+        "limit", "rate", "over", f"{rate}/second",
+        "burst", f"{burst}", "packets",
+        "counter", "drop",
+        "comment", RATE_LIMIT_RULE_COMMENT
+    )
+
+
+def apply_temporary_rate_limit(duration=30, rate=20, burst=40):
+    if not 1 <= duration <= 60:
+        raise ValueError("Duration must be between 1 and 60 seconds.")
+
+    applied = False
+
+    try:
+        ensure_firewall_chain()
+        remove_rate_limit_rules()
+        add_rate_limit(rate, burst)
+        applied = True
+
+        log_event(
+            "rate_limit_applied",
+            client=CLIENT_IP,
+            server=SERVER_IP,
+            port=SERVER_PORT,
+            rate_per_second=rate,
+            burst_packets=burst,
+            duration_seconds=duration,
+        )
+
+        time.sleep(duration)
+
+        return {
+            "success": True,
+            "action": "RATE_LIMIT",
+            "rate_per_second": rate,
+            "burst_packets": burst,
+            "duration_seconds": duration,
+        }
+
+    finally:
+        if applied:
+            remove_rate_limit_rules()
+            log_event("rate_limit_removed")
+
 
 def apply_temporary_block(duration=15):
     if not 1 <= duration <= 60:

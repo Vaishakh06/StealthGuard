@@ -271,6 +271,7 @@ class DetectionEventAdapter:
         client,
         server,
         port,
+        diagnostic_base_features=None,
     ) -> Dict[str, Any]:
         """
         Convert one engineered feature row into a complete
@@ -283,7 +284,8 @@ class DetectionEventAdapter:
 
         inference_result = (
             self.inference.predict_from_engineered_features(
-                engineered_features
+                engineered_features,
+                diagnostic_base_features=diagnostic_base_features,
             )
         )
 
