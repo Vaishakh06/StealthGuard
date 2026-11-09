@@ -21,10 +21,10 @@ logging.basicConfig(
 logger = logging.getLogger("mitigation-controller")
 
 
-# Known lab target only.
-ALLOWED_CLIENT = "172.28.0.10"
-ALLOWED_SERVER = "172.29.0.10"
-ALLOWED_PORT = 8080
+# Known lab networks only. Accept any client in 172.28.0.0/24
+# and any server in 172.29.0.0/24 on any port.
+ALLOWED_CLIENT_NETWORK = "172.28."
+ALLOWED_SERVER_NETWORK = "172.29."
 
 # Only enforcement currently implemented and tested
 # by Person 1's firewall controller.
@@ -55,16 +55,17 @@ class MitigationController:
                 f"Missing required fields: {sorted(missing)}"
             )
 
-        # Enforce the known lab target.
+        # Enforce the known lab networks.
+        client = str(event["client"])
+        server = str(event["server"])
         if (
-            event["client"] != ALLOWED_CLIENT
-            or event["server"] != ALLOWED_SERVER
-            or int(event["port"]) != ALLOWED_PORT
+            not client.startswith(ALLOWED_CLIENT_NETWORK)
+            or not server.startswith(ALLOWED_SERVER_NETWORK)
         ):
             raise ValueError(
-                "Target rejected: only the approved lab target "
-                f"{ALLOWED_CLIENT} -> "
-                f"{ALLOWED_SERVER}:{ALLOWED_PORT} is allowed."
+                "Target rejected: only lab targets in "
+                f"{ALLOWED_CLIENT_NETWORK}0/24 -> "
+                f"{ALLOWED_SERVER_NETWORK}0/24 are allowed."
             )
 
         recommendation = get_recommendation(
@@ -133,6 +134,15 @@ class MitigationController:
             "alert_type": recommendation.alert_type,
             "mitigation_outcome": outcome,
         }
+
+        if event.get("ground_truth") is not None:
+            result["ground_truth"] = event["ground_truth"]
+
+        if event.get("experiment_id") is not None:
+            result["experiment_id"] = event["experiment_id"]
+
+        if event.get("window_id") is not None:
+            result["window_id"] = event["window_id"]
 
         self._write_event(result)
 

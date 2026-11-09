@@ -1,3 +1,5 @@
+import argparse
+import os
 import signal
 import time
 from dataclasses import dataclass
@@ -135,6 +137,8 @@ class FlowCollector:
             "server_to_client_tcp_packets": 0,
             "client_to_server_payload_packets": 0,
             "server_to_client_payload_packets": 0,
+            "client_to_server_packets": 0,
+            "server_to_client_packets": 0,
             "packet_timestamp_regressions": 0,
             "packet_timestamp_wall_clock_offset_min_seconds": None,
             "packet_timestamp_wall_clock_offset_max_seconds": None,
@@ -179,46 +183,45 @@ class FlowCollector:
             else max(offset_max, timestamp_offset)
         )
 
-        if IP not in packet or TCP not in packet:
+        if IP not in packet or (TCP not in packet and UDP not in packet):
             return
 
         ip = packet[IP]
-        tcp = packet[TCP]
-        flags = int(tcp.flags)
-        syn = bool(flags & 0x02)
-        ack = bool(flags & 0x10)
+        src_ip = ip.src
+        dst_ip = ip.dst
 
-        if syn and ack:
-            self.diagnostics["tcp_syn_ack_packets"] += 1
-        elif syn:
-            self.diagnostics["tcp_syn_packets"] += 1
+        # TCP diagnostics (safe for both TCP and UDP)
+        if TCP in packet:
+            tcp = packet[TCP]
+            flags = int(tcp.flags)
+            syn = bool(flags & 0x02)
+            ack = bool(flags & 0x10)
 
-        if ack:
-            self.diagnostics["tcp_ack_packets"] += 1
-        if flags & 0x01:
-            self.diagnostics["tcp_fin_packets"] += 1
-        if flags & 0x04:
-            self.diagnostics["tcp_rst_packets"] += 1
+            if syn and ack:
+                self.diagnostics["tcp_syn_ack_packets"] += 1
+            elif syn:
+                self.diagnostics["tcp_syn_packets"] += 1
 
-        client_to_server = (
-            ip.src == "172.28.0.10"
-            and ip.dst == "172.29.0.10"
-            and int(tcp.dport) == 8080
-        )
-        server_to_client = (
-            ip.src == "172.29.0.10"
-            and ip.dst == "172.28.0.10"
-            and int(tcp.sport) == 8080
-        )
+            if ack:
+                self.diagnostics["tcp_ack_packets"] += 1
+            if flags & 0x01:
+                self.diagnostics["tcp_fin_packets"] += 1
+            if flags & 0x04:
+                self.diagnostics["tcp_rst_packets"] += 1
+
+        # Broadened target: any client network IP to any server network IP
+        client_network = src_ip.startswith("172.28.")
+        server_network = dst_ip.startswith("172.29.")
+        reverse_server = src_ip.startswith("172.29.")
+        reverse_client = dst_ip.startswith("172.28.")
+
+        client_to_server = client_network and server_network
+        server_to_client = reverse_server and reverse_client
 
         if client_to_server:
-            self.diagnostics["client_to_server_tcp_packets"] += 1
-            if len(tcp.payload) > 0:
-                self.diagnostics["client_to_server_payload_packets"] += 1
+            self.diagnostics["client_to_server_packets"] += 1
         elif server_to_client:
-            self.diagnostics["server_to_client_tcp_packets"] += 1
-            if len(tcp.payload) > 0:
-                self.diagnostics["server_to_client_payload_packets"] += 1
+            self.diagnostics["server_to_client_packets"] += 1
 
     @staticmethod
     def _packet_info(packet):
@@ -418,12 +421,16 @@ class LiveDetectionPipeline:
             )
 
             # Reuse the existing detection and AnomalyFlow logic.
+            # Use actual flow values from the first flow in the window.
+            first_flow = window[0]
+            ground_truth = os.getenv("STEALTHGUARD_GROUND_TRUTH")
             event = self.event_adapter.create_event(
                 engineered_features=engineered_features,
-                client=self.CLIENT_IP,
-                server=self.SERVER_IP,
-                port=self.SERVER_PORT,
+                client=first_flow.src_ip,
+                server=first_flow.dst_ip,
+                port=first_flow.dst_port,
                 diagnostic_base_features=flow_window,
+                ground_truth=ground_truth,
             )
 
             print("\nLIVE DETECTION EVENT")
@@ -446,20 +453,15 @@ class LiveDetectionPipeline:
 
 
 def handle_completed_flow(flow):
-    # Normalize flows first observed in the server-to-client direction.
-    forward_target = (
-        flow.protocol == 6
-        and flow.src_ip == "172.28.0.10"
-        and flow.dst_ip == "172.29.0.10"
-        and flow.dst_port == 8080
-    )
+    # Normalize flows first observed in the server-to-client direction so
+    # forward is always client network -> server network.
+    client_src = flow.src_ip.startswith("172.28.")
+    server_dst = flow.dst_ip.startswith("172.29.")
+    server_src = flow.src_ip.startswith("172.29.")
+    client_dst = flow.dst_ip.startswith("172.28.")
 
-    reverse_target = (
-        flow.protocol == 6
-        and flow.src_ip == "172.29.0.10"
-        and flow.dst_ip == "172.28.0.10"
-        and flow.src_port == 8080
-    )
+    forward_target = client_src and server_dst
+    reverse_target = server_src and client_dst
 
     if reverse_target:
         flow = Flow(
@@ -482,16 +484,8 @@ def handle_completed_flow(flow):
         collector.diagnostics["non_target_flows_rejected"] += 1
         return
 
-    if flow.total_packets < 2:
+    if flow.total_packets < 1:
         collector.diagnostics["incomplete_target_flows_discarded"] += 1
-        print(
-            "Discarded incomplete target flow: "
-            f"{flow.total_packets} packet(s), "
-            f"fwd={flow.forward_packets}, "
-            f"bwd={flow.backward_packets}, "
-            f"{flow.src_ip}:{flow.src_port} -> "
-            f"{flow.dst_ip}:{flow.dst_port}"
-        )
         return
 
     collector.diagnostics["flows_accepted"] += 1
@@ -536,10 +530,20 @@ def main():
     print("STEALTHGUARD LIVE FLOW COLLECTOR")
     print("=" * 70)
 
-    print("\nInterface: cp-gateway eth1")
-    print("Capturing client-side traffic...")
+    print("\nInterface: all gateway interfaces")
+    print("Capturing client <-> server traffic...")
     print("100 completed flows -> frozen ML inference")
     print("Press Ctrl+C to stop.\n")
+
+    parser = argparse.ArgumentParser(
+        description="StealthGuard live flow collector"
+    )
+    parser.add_argument(
+        "--iface",
+        default="br-a56e51d39a9c",
+        help="Network interface to sniff on (default: br-a56e51d39a9c)",
+    )
+    args = parser.parse_args()
 
     try:
         signal.signal(signal.SIGINT, request_shutdown)
@@ -547,7 +551,7 @@ def main():
 
         while not shutdown_requested:
             sniff(
-                iface="eth1",
+                iface=args.iface,
                 prn=packet_handler,
                 store=False,
                 timeout=1,

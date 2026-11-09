@@ -272,6 +272,7 @@ class DetectionEventAdapter:
         server,
         port,
         diagnostic_base_features=None,
+        ground_truth=None,
     ) -> Dict[str, Any]:
         """
         Convert one engineered feature row into a complete
@@ -387,6 +388,8 @@ class DetectionEventAdapter:
                 anomalyflow_result[
                     "security_severity"
                 ],
+
+            "ground_truth": ground_truth,
         }
 
 
