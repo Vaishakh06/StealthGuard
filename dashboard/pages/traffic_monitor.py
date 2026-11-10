@@ -12,20 +12,7 @@ from components.tables import detection_table
 def render(state):
     st.header("Traffic Monitor")
 
-    # Experiment filter
-    exp_ids = ["All"] + sorted(
-        {e.experiment_id for e in state.detection_events if e.experiment_id}
-    )
-    selected_exp = st.selectbox(
-        "Filter by Experiment",
-        exp_ids,
-        key="traffic_exp_filter",
-        help="Show traffic metrics for a specific experiment only.",
-    )
-
     events = state.detection_events
-    if selected_exp != "All":
-        events = [e for e in events if e.experiment_id == selected_exp]
 
     total_windows = len(events)
     benign = sum(1 for e in events if e.predicted_class == "BENIGN")
@@ -74,12 +61,7 @@ def render(state):
     else:
         st.info("No source IP data available.")
 
-    if selected_exp != "All":
-        st.caption(f"Showing experiment: **{selected_exp}**")
-
     st.info(
         "Note: The ML model operates on 100-flow windows. Each row above "
-        "represents one inference window, not one individual flow. "
-        "Ground-truth labels come from the experiment metadata; if unavailable, "
-        "they are shown as 'unavailable'."
+        "represents one inference window, not one individual flow."
     )

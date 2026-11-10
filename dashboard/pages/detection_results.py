@@ -6,13 +6,11 @@ import streamlit as st
 
 from components.charts import (
     predicted_class_distribution_chart,
-    confusion_matrix_chart,
     events_over_time_chart,
-    per_class_metrics_chart,
 )
 from components.metric_cards import metric_row
 from components.tables import detection_table, csv_export_button
-from services.metrics_calculator import detection_metrics, predicted_class_distribution
+from services.metrics_calculator import predicted_class_distribution
 import pandas as pd
 
 
@@ -20,33 +18,11 @@ def render(state):
     st.header("ML Detection Results")
 
     events = state.detection_events
-    metrics = detection_metrics(events)
 
     metric_row([
-        ("Total Windows Evaluated", metrics["total_windows"], None),
-        ("Correct Predictions", metrics["correct"], None),
-        ("Incorrect Predictions", metrics["incorrect"], None),
-        ("Unevaluated Windows", metrics["unevaluated"], None),
+        ("Total Windows Evaluated", len(events), None),
+        ("Unique Classes Predicted", len({e.predicted_class for e in events if e.predicted_class}), None),
     ])
-
-    st.divider()
-
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        acc = metrics["accuracy"]
-        st.metric("Classification Accuracy", f"{acc:.2%}" if acc is not None else "N/A")
-    with col2:
-        st.metric("Precision (macro)", f"{metrics['precision']:.2%}" if metrics["precision"] is not None else "N/A")
-    with col3:
-        st.metric("Recall (macro)", f"{metrics['recall']:.2%}" if metrics["recall"] is not None else "N/A")
-    with col4:
-        st.metric("F1-Score (macro)", f"{metrics['f1']:.2%}" if metrics["f1"] is not None else "N/A")
-
-    if metrics["accuracy"] is None:
-        st.info(
-            "Classification accuracy is not calculated because ground-truth "
-            "labels are not available for these windows."
-        )
 
     st.divider()
 
@@ -54,18 +30,17 @@ def render(state):
     table_data = [
         {
             "timestamp": e.timestamp,
-            "experiment_id": e.experiment_id,
-            "window_id": e.window_id,
-            "source_ip": e.source_ip,
-            "destination_ip": e.destination_ip,
-            "destination_port": e.destination_port,
+            "experiment_id": e.experiment_id or "—",
+            "window_id": e.window_id or "—",
+            "source_ip": e.source_ip or "—",
+            "destination_ip": e.destination_ip or "—",
+            "destination_port": e.destination_port or "—",
             "ground_truth": e.ground_truth or "—",
-            "predicted_class": e.predicted_class,
+            "predicted_class": e.predicted_class or "—",
             "confidence": round(e.confidence, 3) if e.confidence is not None else None,
-            "security_severity": e.security_severity,
-            "mitigation_action": e.mitigation_action,
-            "mitigation_outcome": e.mitigation_outcome,
-            "evaluation_status": e.evaluation_status,
+            "security_severity": e.security_severity or "—",
+            "mitigation_action": e.mitigation_action or "—",
+            "mitigation_outcome": e.mitigation_outcome or "—",
         }
         for e in events
     ]
@@ -91,11 +66,8 @@ def render(state):
             use_container_width=True,
         )
 
-    st.subheader("Per-Class Metrics")
-    if metrics["per_class"]:
-        st.plotly_chart(
-            per_class_metrics_chart(metrics["per_class"]),
-            use_container_width=True,
-        )
-    else:
-        st.info("Per-class metrics require ground-truth labels.")
+    st.info(
+        "Each row is one 100-flow inference window. The predicted_class is the "
+        "model output; ground_truth is the intended traffic class when available. "
+        "If ground_truth shows '—', it was not provided for that window."
+    )

@@ -96,13 +96,18 @@ class MitigationController:
                 outcome = "SIMULATED"
             else:
                 if recommendation.action == "BLOCK_AND_RATE_LIMIT":
-                    firewall_result = firewall_controller.apply_temporary_block(
+                    firewall_controller.apply_temporary_block(
                         duration=15
                     )
+                    firewall_controller.apply_temporary_rate_limit(
+                        duration=30,
+                        rate=20,
+                        burst=40,
+                    )
                     status = "APPLIED"
-                    outcome = "BLOCK_APPLIED"
+                    outcome = "BLOCK_AND_RATE_LIMIT_APPLIED"
                 else:
-                    firewall_result = firewall_controller.apply_temporary_rate_limit(
+                    firewall_controller.apply_temporary_rate_limit(
                         duration=30,
                         rate=20,
                         burst=40,

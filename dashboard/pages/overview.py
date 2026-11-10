@@ -12,37 +12,7 @@ from config import STATUS_COLOURS
 def render(state):
     st.header("System Overview")
 
-    # Experiment filter
-    exp_ids = ["All"] + sorted(
-        {e.experiment_id for e in state.detection_events if e.experiment_id}
-    )
-    selected_exp = st.selectbox(
-        "Filter by Experiment",
-        exp_ids,
-        key="overview_exp_filter",
-        help="Show metrics for a specific experiment only, or all experiments.",
-    )
-
-    events = state.detection_events
-    fw = state.firewall_events
-
-    if selected_exp != "All":
-        events = [e for e in events if e.experiment_id == selected_exp]
-        fw = [e for e in fw if e.experiment_id == selected_exp]
-
-    total_windows = len(events)
-    attacks = sum(1 for e in events if e.predicted_class and e.predicted_class != "BENIGN")
-    mitigations = sum(1 for e in events if e.mitigation_action and e.mitigation_action != "NO_ACTION")
-
-    # Active firewall rules
-    active_blocks = sum(1 for e in fw if e.event == "block_applied") - sum(
-        1 for e in fw if e.event == "block_removed"
-    )
-    active_rate_limits = sum(1 for e in fw if e.event == "rate_limit_applied") - sum(
-        1 for e in fw if e.event == "rate_limit_removed"
-    )
-    active_blocks = max(0, active_blocks)
-    active_rate_limits = max(0, active_rate_limits)
+    metrics = overview_metrics(state)
 
     metric_row([
         ("Gateway", "RUNNING", None),
@@ -58,10 +28,10 @@ def render(state):
     st.divider()
 
     metric_row([
-        ("Windows Processed", total_windows, None),
-        ("Attacks Detected", attacks, None),
-        ("Mitigation Actions", mitigations, None),
-        ("Active Firewall Rules", active_blocks + active_rate_limits, None),
+        ("Windows Processed", metrics["total_windows"], None),
+        ("Attacks Detected", metrics["total_attacks"], None),
+        ("Mitigation Actions", metrics["total_mitigations"], None),
+        ("Active Firewall Rules", metrics["active_rules"], None),
     ])
 
     st.divider()
@@ -76,9 +46,6 @@ def render(state):
         status_card("AnomalyFlow", "ACTIVE", STATUS_COLOURS)
     with status_col4:
         status_card("Firewall", "ACTIVE", STATUS_COLOURS)
-
-    if selected_exp != "All":
-        st.caption(f"Showing experiment: **{selected_exp}**")
 
     if state.errors:
         with st.expander("Load Errors", expanded=False):

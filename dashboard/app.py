@@ -9,8 +9,14 @@ import time
 import streamlit as st
 
 from config import MODES, DEFAULT_MODE, REFRESH_INTERVAL_SECONDS, SAMPLE_DATA_DIR
-from services.event_processor import load_state, refresh_state
-from pages import overview, traffic_monitor, detection_results, severity_analysis, firewall_monitor, experiment_results
+from services.event_processor import load_state
+from pages import (
+    overview,
+    traffic_monitor,
+    detection_results,
+    severity_analysis,
+    firewall_monitor,
+)
 
 PAGES = {
     "1. System Overview": overview,
@@ -18,7 +24,6 @@ PAGES = {
     "3. ML Detection Results": detection_results,
     "4. AnomalyFlow Severity": severity_analysis,
     "5. Firewall Monitor": firewall_monitor,
-    "6. Experiment Results": experiment_results,
 }
 
 SAMPLE_EVENTS = SAMPLE_DATA_DIR / "detection_events.jsonl"
@@ -32,10 +37,6 @@ def _init_session_state():
         st.session_state.state = None
     if "last_refresh" not in st.session_state:
         st.session_state.last_refresh = 0.0
-    if "det_line_offset" not in st.session_state:
-        st.session_state.det_line_offset = 0
-    if "fw_line_offset" not in st.session_state:
-        st.session_state.fw_line_offset = 0
 
 
 def _render_sidebar():
@@ -62,7 +63,7 @@ def _render_sidebar():
     st.sidebar.subheader("Refresh")
     auto = st.sidebar.toggle("Auto-refresh (2–3s)", value=True, key="auto_refresh")
     if st.sidebar.button("Refresh Now", key="refresh_btn"):
-        st.session_state.last_refresh = 0.0  # force reload
+        st.session_state.last_refresh = 0.0
 
     st.sidebar.divider()
     st.sidebar.subheader("Navigation")
@@ -117,7 +118,6 @@ def main():
         st.error("Failed to load dashboard state.")
         return
 
-    # Sample mode banner
     if state.sample_mode:
         st.error(
             "SAMPLE DATA MODE — displaying bundled demonstration data. "

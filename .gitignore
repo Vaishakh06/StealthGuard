@@ -13,61 +13,92 @@ dataset/engineered/
 __pycache__/
 *.py[cod]
 *.pyo
+*.pyd
+
+# ============================================================
+# Virtual environments — keep outside Git
+# ============================================================
+
+.venv/
+venv/
+env/
+stealthguard-venv/
+.ENV/
+env.bak/
+venv.bak/
 
 # ============================================================
 # macOS
 # ============================================================
 
 .DS_Store
+.AppleDouble
+.LSOverride
 
 # ============================================================
 # Jupyter
 # ============================================================
 
 .ipynb_checkpoints/
-
-# ============================================================
-# Local environments
-# ============================================================
-
-.venv/
-venv/
-env/
+*.ipynb
 
 # ============================================================
 # IDE files
 # ============================================================
 
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
 
 # ============================================================
-# Temporary / cache files
+# Temporary / cache / log files
 # ============================================================
 
 *.log
 *.tmp
+*.bak
+*.swp
 
 # ============================================================
-# Large generated mitigation artifact
-# Keep locally / external storage
+# Network captures — large binary files
+# ============================================================
+
+*.pcap
+*.pcapng
+
+# ============================================================
+# ML model artifacts — large binary files
+# Keep locally or use Git LFS
+# ============================================================
+
+models/*.pth
+models/*.pkl
+models/*.npy
+models/**/*.pth
+models/**/*.pkl
+models/**/*.npy
+
+# ============================================================
+# Generated diagnostics and runtime output
+# ============================================================
+
+diagnostics/
+results/
+mitigation/logs/*.jsonl
+mitigation/controller/mitigation_actions.jsonl
+
+# ============================================================
+# Streamlit
+# ============================================================
+
+.streamlit/
+
+# ============================================================
+# Temporary generated artifacts
 # ============================================================
 
 mitigation/final_mitigation_results.csv
 PROJECT_DECISIONS.md
 PROJECT_PROGRESS.md
-
-# Network lab captures and temporary artifacts
-*.pcap
-*.pcapng
-*.bak
-__pycache__/
-
-# macOS metadata
-.DS_Store
-
-# Generated traffic captures and backups
-*.pcap
-*.pcapng
-*.bak
-__pycache__/
-.DS_Store

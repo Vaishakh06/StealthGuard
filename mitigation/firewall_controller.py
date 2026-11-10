@@ -21,7 +21,7 @@ SERVER_PORT = 8080
 RULE_COMMENT = "temporary-lab-mitigation"
 RATE_LIMIT_RULE_COMMENT = "temporary-lab-rate-limit"
 
-LOG_FILE = Path(__file__).resolve().parent / "mitigation_actions.jsonl"
+LOG_FILE = Path(__file__).resolve().parent / "controller" / "mitigation_actions.jsonl"
 
 stop_event = threading.Event()
 received_signal = None
