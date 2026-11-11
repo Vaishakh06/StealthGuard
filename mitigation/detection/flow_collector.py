@@ -484,7 +484,7 @@ def handle_completed_flow(flow):
         collector.diagnostics["non_target_flows_rejected"] += 1
         return
 
-    if flow.total_packets < 1:
+    if flow.total_packets < 2:
         collector.diagnostics["incomplete_target_flows_discarded"] += 1
         return
 

@@ -33,7 +33,14 @@ SERVER_IP = "172.29.0.10"
 GATEWAY_CLIENT_IP = "172.28.0.2"
 
 # Source IPs used to simulate multiple attackers (172.28.0.11 - 172.28.0.30)
-SOURCE_IPS = [f"172.28.0.{i}" for i in range(11, 31)]
+# NOTE: We use cp-client's actual IP (172.28.0.10) so server responses return
+# through cp-gateway and are captured by the flow collector. Spoofed IPs would
+# cause responses to go to non-existent hosts, producing single-packet flows
+# that the collector now rejects (< 2 packet threshold).
+SOURCE_IP = "172.28.0.10"
+
+# Response packet sizes per protocol class
+RESPONSE_PAYLOAD_SIZE = (0, 64)
 
 # ---------------------------------------------------------------------------
 # Attack class configurations
@@ -107,9 +114,10 @@ ATTACK_CLASSES = {
     "DrDoS_NTP": {
         "protocol": "udp",
         "dst_port": 123,
-        "payload_size": (72, 120),
-        "inter_packet_delay": 0.02,
-        "description": "DrDoS NTP - UDP port 123, monlist-style requests",
+        "payload_size": (400, 450),
+        "inter_packet_delay": 0.00001,
+        "packets_per_flow": (52, 75),
+        "description": "DrDoS NTP - UDP port 123, monlist-style requests (~64 packets/flow, forward-only)",
     },
     "DrDoS_SSDP": {
         "protocol": "udp",
@@ -220,16 +228,32 @@ def generate_traffic(
 
     print(f"Generating {attack_class} traffic")
     print(f"  Protocol: {protocol.upper()}")
-    print(f"  Packets: {count}")
+    print(f"  Flows: {count}")
     print(f"  Target: {dst_ip}")
     print(f"  Payload size: {payload_min}-{payload_max} bytes")
     print(f"  Inter-packet delay: {delay}s")
+    if "packets_per_flow" in config:
+        print(f"  Packets per flow: {config['packets_per_flow'][0]}-{config['packets_per_flow'][1]}")
     print()
 
     sent = 0
+    src_port_base = 40000
+
     for i in range(count):
-        src_ip = random.choice(SOURCE_IPS)
-        src_port = random.randint(40000, 60000)
+        src_ip = SOURCE_IP
+
+        # For DrDoS_NTP: use a fixed source port per flow so all packets
+        # in the flow share the same 5-tuple (producing ~64 packets/flow).
+        # For all other classes: random source port per packet (1 packet/flow).
+        if "packets_per_flow" in config:
+            src_port = src_port_base + i
+            pkt_count = random.randint(
+                config["packets_per_flow"][0],
+                config["packets_per_flow"][1],
+            )
+        else:
+            src_port = random.randint(40000, 60000)
+            pkt_count = 1
 
         if config["dst_port"] is not None:
             dst_port = config["dst_port"]
@@ -237,29 +261,49 @@ def generate_traffic(
             lo, hi = config["dst_port_range"]
             dst_port = random.randint(lo, hi)
 
-        payload = _random_payload(payload_min, payload_max)
+        for j in range(pkt_count):
+            payload = _random_payload(payload_min, payload_max)
 
-        pkt = _build_packet(
-            src_ip=src_ip,
-            dst_ip=dst_ip,
-            src_port=src_port,
-            dst_port=dst_port,
-            protocol=protocol,
-            payload=payload,
-            flags=config.get("flags"),
-        )
+            # Attack packet: client -> server
+            pkt = _build_packet(
+                src_ip=src_ip,
+                dst_ip=dst_ip,
+                src_port=src_port,
+                dst_port=dst_port,
+                protocol=protocol,
+                payload=payload,
+                flags=config.get("flags"),
+            )
 
-        send(pkt, verbose=False)
-        sent += 1
+            send(pkt, verbose=False)
+            sent += 1
+
+            # Response packet: server -> client (completes bidirectional flow)
+            # Only for non-DrDoS_NTP classes. DrDoS_NTP is forward-only
+            # in the training data (backward packets ≈ 0).
+            if "packets_per_flow" not in config:
+                resp_payload = _random_payload(*RESPONSE_PAYLOAD_SIZE)
+                resp_pkt = _build_packet(
+                    src_ip=dst_ip,
+                    dst_ip=src_ip,
+                    src_port=dst_port,
+                    dst_port=src_port,
+                    protocol=protocol,
+                    payload=resp_payload,
+                )
+
+                send(resp_pkt, verbose=False)
+                sent += 1
 
         if sent % 10 == 0:
-            print(f"  Sent {sent}/{count} packets", end="\r")
+            total_expected = count * 2 if "packets_per_flow" not in config else "varies"
+            print(f"  Sent {sent} packets", end="\r")
 
         # Rate limiting: sleep based on configured inter-packet delay
         if delay > 0:
             time.sleep(delay)
 
-    print(f"\n  Sent {sent}/{count} packets for {attack_class}")
+    print(f"\n  Sent {sent} packets for {attack_class}")
 
 
 def list_classes():
