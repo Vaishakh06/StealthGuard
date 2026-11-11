@@ -10,12 +10,13 @@ import streamlit as st
 
 from config import MODES, DEFAULT_MODE, REFRESH_INTERVAL_SECONDS, SAMPLE_DATA_DIR
 from services.event_processor import load_state
-from pages import (
+from sections import (
     overview,
     traffic_monitor,
     detection_results,
     severity_analysis,
     firewall_monitor,
+    experiment_results,
 )
 
 PAGES = {
@@ -24,6 +25,7 @@ PAGES = {
     "3. ML Detection Results": detection_results,
     "4. AnomalyFlow Severity": severity_analysis,
     "5. Firewall Monitor": firewall_monitor,
+    "6. Experiment Results": experiment_results,
 }
 
 SAMPLE_EVENTS = SAMPLE_DATA_DIR / "detection_events.jsonl"

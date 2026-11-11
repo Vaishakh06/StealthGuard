@@ -1,15 +1,16 @@
-{"timestamp": "2026-10-15T14:42:04.690609+00:00", "event": "controller_error", "error": "Command '['docker', 'exec', 'cp-gateway', 'nft', 'list', 'chain', 'inet', 'mitigation', 'forward']' returned non-zero exit status 1."}
-{"timestamp": "2026-10-15T14:42:04.829467+00:00", "event": "cleanup_error", "error": "Command '['docker', 'exec', 'cp-gateway', 'nft', '-a', 'list', 'chain', 'inet', 'mitigation', 'forward']' returned non-zero exit status 1."}
-{"timestamp": "2026-10-15T14:47:46.302474+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 15}
-{"timestamp": "2026-10-15T14:48:01.564532+00:00", "event": "block_removed"}
-{"timestamp": "2026-10-15T14:52:45.573488+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 15}
-{"timestamp": "2026-10-15T14:53:00.778705+00:00", "event": "block_removed"}
-{"timestamp": "2026-10-21T14:08:16.690698+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 45}
-{"timestamp": "2026-10-21T14:09:01.955334+00:00", "event": "block_removed"}
-{"timestamp": "2026-10-21T14:13:50.931260+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 2}
-{"timestamp": "2026-10-21T14:13:53.203307+00:00", "event": "block_removed"}
-{"timestamp": "2026-10-21T14:25:09.884748+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 45}
-{"timestamp": "2026-10-21T14:25:10.010691+00:00", "event": "controller_interrupted", "signal": "SIGTERM"}
-{"timestamp": "2026-10-21T14:25:10.257189+00:00", "event": "block_removed"}
-{"timestamp": "2026-11-10T04:28:35.498867+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 15}
-{"timestamp": "2026-11-10T04:28:51.244312+00:00", "event": "block_removed"}
+{"timestamp": "2026-11-10T05:47:48.179985+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 15}
+{"timestamp": "2026-11-10T05:48:03.571629+00:00", "event": "block_removed"}
+{"timestamp": "2026-11-10T05:48:04.139562+00:00", "event": "rate_limit_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "rate_per_second": 20, "burst_packets": 40, "duration_seconds": 30}
+{"timestamp": "2026-11-10T05:48:34.804010+00:00", "event": "rate_limit_removed"}
+{"timestamp": "2026-11-10T06:06:32.686421+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 15}
+{"timestamp": "2026-11-10T06:06:48.012231+00:00", "event": "block_removed"}
+{"timestamp": "2026-11-10T06:06:48.784571+00:00", "event": "rate_limit_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "rate_per_second": 20, "burst_packets": 40, "duration_seconds": 30}
+{"timestamp": "2026-11-10T06:07:19.092553+00:00", "event": "rate_limit_removed"}
+{"timestamp": "2026-11-10T06:10:45.942120+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 15}
+{"timestamp": "2026-11-10T06:11:01.395773+00:00", "event": "block_removed"}
+{"timestamp": "2026-11-10T06:11:03.314814+00:00", "event": "rate_limit_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "rate_per_second": 20, "burst_packets": 40, "duration_seconds": 30}
+{"timestamp": "2026-11-10T06:11:34.295126+00:00", "event": "rate_limit_removed"}
+{"timestamp": "2026-11-10T06:24:56.542045+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "duration_seconds": 15}
+{"timestamp": "2026-11-10T06:25:11.842947+00:00", "event": "block_removed"}
+{"timestamp": "2026-11-10T06:25:12.371271+00:00", "event": "rate_limit_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 8080, "rate_per_second": 20, "burst_packets": 40, "duration_seconds": 30}
+{"timestamp": "2026-11-10T06:25:43.068190+00:00", "event": "rate_limit_removed"}
