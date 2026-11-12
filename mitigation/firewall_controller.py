@@ -17,7 +17,6 @@ CHAIN = "forward"
 
 CLIENT_IP = "172.28.0.10"
 SERVER_IP = "172.29.0.10"
-SERVER_PORT = 8080
 RULE_COMMENT = "temporary-lab-mitigation"
 RATE_LIMIT_RULE_COMMENT = "temporary-lab-rate-limit"
 
@@ -90,12 +89,12 @@ def remove_our_rules():
         )
 
 
-def add_block():
+def add_block(client_ip, server_ip, port, protocol="tcp"):
     run_nft(
         "add", "rule", FAMILY, TABLE, CHAIN,
-        "ip", "saddr", CLIENT_IP,
-        "ip", "daddr", SERVER_IP,
-        "tcp", "dport", str(SERVER_PORT),
+        "ip", "saddr", client_ip,
+        "ip", "daddr", server_ip,
+        protocol, "dport", str(port),
         "counter", "drop",
         "comment", RULE_COMMENT
     )
@@ -118,12 +117,12 @@ def remove_rate_limit_rules():
         )
 
 
-def add_rate_limit(rate=20, burst=40):
+def add_rate_limit(client_ip, server_ip, port, protocol, rate=20, burst=40):
     run_nft(
         "add", "rule", FAMILY, TABLE, CHAIN,
-        "ip", "saddr", CLIENT_IP,
-        "ip", "daddr", SERVER_IP,
-        "tcp", "dport", str(SERVER_PORT),
+        "ip", "saddr", client_ip,
+        "ip", "daddr", server_ip,
+        protocol, "dport", str(port),
         "limit", "rate", "over", f"{rate}/second",
         "burst", f"{burst}", "packets",
         "counter", "drop",
@@ -131,23 +130,29 @@ def add_rate_limit(rate=20, burst=40):
     )
 
 
-def apply_temporary_rate_limit(duration=30, rate=20, burst=40):
+def apply_temporary_rate_limit(
+    client_ip=CLIENT_IP, server_ip=SERVER_IP, port=None,
+    protocol="tcp", duration=30, rate=20, burst=40,
+):
     if not 1 <= duration <= 60:
         raise ValueError("Duration must be between 1 and 60 seconds.")
+
+    if port is None:
+        raise ValueError("port is required for firewall rate-limit rule.")
 
     applied = False
 
     try:
         ensure_firewall_chain()
         remove_rate_limit_rules()
-        add_rate_limit(rate, burst)
+        add_rate_limit(client_ip, server_ip, port, protocol, rate, burst)
         applied = True
 
         log_event(
             "rate_limit_applied",
-            client=CLIENT_IP,
-            server=SERVER_IP,
-            port=SERVER_PORT,
+            client=client_ip,
+            server=server_ip,
+            port=port,
             rate_per_second=rate,
             burst_packets=burst,
             duration_seconds=duration,
@@ -169,23 +174,29 @@ def apply_temporary_rate_limit(duration=30, rate=20, burst=40):
             log_event("rate_limit_removed")
 
 
-def apply_temporary_block(duration=15):
+def apply_temporary_block(
+    client_ip=CLIENT_IP, server_ip=SERVER_IP, port=None,
+    protocol="tcp", duration=15,
+):
     if not 1 <= duration <= 60:
         raise ValueError("Duration must be between 1 and 60 seconds.")
+
+    if port is None:
+        raise ValueError("port is required for firewall block rule.")
 
     applied = False
 
     try:
         ensure_firewall_chain()
         remove_our_rules()
-        add_block()
+        add_block(client_ip, server_ip, port, protocol)
         applied = True
 
         log_event(
             "block_applied",
-            client=CLIENT_IP,
-            server=SERVER_IP,
-            port=SERVER_PORT,
+            client=client_ip,
+            server=server_ip,
+            port=port,
             duration_seconds=duration,
         )
 
@@ -194,9 +205,9 @@ def apply_temporary_block(duration=15):
         return {
             "success": True,
             "action": "BLOCK",
-            "client": CLIENT_IP,
-            "server": SERVER_IP,
-            "port": SERVER_PORT,
+            "client": client_ip,
+            "server": server_ip,
+            "port": port,
             "duration_seconds": duration,
         }
 
@@ -225,14 +236,14 @@ def main():
         # Remove stale rules from an earlier interrupted run.
         remove_our_rules()
 
-        add_block()
+        add_block(CLIENT_IP, SERVER_IP, 8080, "tcp")
         applied = True
 
         log_event(
             "block_applied",
             client=CLIENT_IP,
             server=SERVER_IP,
-            port=SERVER_PORT,
+            port=8080,
             duration_seconds=args.duration,
         )
         print(f"Block active for up to {args.duration} seconds.", flush=True)

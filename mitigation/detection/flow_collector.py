@@ -424,6 +424,8 @@ class LiveDetectionPipeline:
             # Use actual flow values from the first flow in the window.
             first_flow = window[0]
             ground_truth = os.getenv("STEALTHGUARD_GROUND_TRUTH")
+            # Convert IP protocol number to string for firewall rules.
+            flow_protocol = "tcp" if first_flow.protocol == 6 else "udp"
             event = self.event_adapter.create_event(
                 engineered_features=engineered_features,
                 client=first_flow.src_ip,
@@ -431,6 +433,7 @@ class LiveDetectionPipeline:
                 port=first_flow.dst_port,
                 diagnostic_base_features=flow_window,
                 ground_truth=ground_truth,
+                protocol=flow_protocol,
             )
 
             print("\nLIVE DETECTION EVENT")

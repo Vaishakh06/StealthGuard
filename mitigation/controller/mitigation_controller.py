@@ -95,11 +95,24 @@ class MitigationController:
                 status = "DRY_RUN"
                 outcome = "SIMULATED"
             else:
+                client_ip = str(event["client"])
+                server_ip = str(event["server"])
+                port = int(event["port"])
+                protocol = str(event.get("protocol", "tcp"))
+
                 if recommendation.action == "BLOCK_AND_RATE_LIMIT":
                     firewall_controller.apply_temporary_block(
-                        duration=15
+                        client_ip=client_ip,
+                        server_ip=server_ip,
+                        port=port,
+                        protocol=protocol,
+                        duration=15,
                     )
                     firewall_controller.apply_temporary_rate_limit(
+                        client_ip=client_ip,
+                        server_ip=server_ip,
+                        port=port,
+                        protocol=protocol,
                         duration=30,
                         rate=20,
                         burst=40,
@@ -108,6 +121,10 @@ class MitigationController:
                     outcome = "BLOCK_AND_RATE_LIMIT_APPLIED"
                 else:
                     firewall_controller.apply_temporary_rate_limit(
+                        client_ip=client_ip,
+                        server_ip=server_ip,
+                        port=port,
+                        protocol=protocol,
                         duration=30,
                         rate=20,
                         burst=40,

@@ -52,42 +52,22 @@ RESPONSE_PAYLOAD_SIZE = (0, 64)
 # ---------------------------------------------------------------------------
 
 ATTACK_CLASSES = {
-    "Syn": {
-        "protocol": "tcp",
-        "dst_port": 8080,
-        "flags": "S",
-        "payload_size": 0,
-        "inter_packet_delay": 0.005,
-        "description": "TCP SYN flood - SYN only, no completion, small packets",
-    },
-    "UDP": {
-        "protocol": "udp",
-        "dst_port": None,  # random port
-        "dst_port_range": (1024, 65535),
-        "payload_size": (64, 512),
-        "inter_packet_delay": 0.01,
-        "description": "UDP flood - random ports, variable payload sizes",
-    },
-    "UDP-lag": {
-        "protocol": "udp",
-        "dst_port": None,
-        "dst_port_range": (1024, 65535),
-        "payload_size": (32, 128),
-        "inter_packet_delay": 0.5,
-        "description": "Low-rate UDP - delays between packets, longer duration",
-    },
     "TFTP": {
         "protocol": "udp",
         "dst_port": 69,
-        "payload_size": (40, 60),
-        "inter_packet_delay": 0.05,
-        "description": "TFTP read/write requests - small UDP packets on port 69",
+        "payload_size": (510, 518),
+        "inter_packet_delay": 0.00001,
+        "packets_per_flow": (2, 4),
+        "forward_only": True,
+        "description": "TFTP - UDP port 69, small read/write requests (~3 packets/flow, forward-only)",
     },
     "Portmap": {
         "protocol": "tcp",
         "dst_port": 111,
         "payload_size": (64, 256),
         "inter_packet_delay": 0.02,
+        "packets_per_flow": (2, 2),
+        "forward_only": True,
         "description": "Portmap/RPC - TCP port 111",
     },
     "MSSQL": {
@@ -95,6 +75,8 @@ ATTACK_CLASSES = {
         "dst_port": 1433,
         "payload_size": (128, 512),
         "inter_packet_delay": 0.03,
+        "packets_per_flow": (2, 2),
+        "forward_only": True,
         "description": "MSSQL - TCP port 1433, TDS-like packets",
     },
     "NetBIOS": {
@@ -102,14 +84,18 @@ ATTACK_CLASSES = {
         "dst_port": 137,
         "payload_size": (48, 96),
         "inter_packet_delay": 0.03,
+        "packets_per_flow": (2, 2),
+        "forward_only": True,
         "description": "NetBIOS name service - UDP port 137",
     },
     "DrDoS_DNS": {
         "protocol": "udp",
         "dst_port": 53,
-        "payload_size": (40, 80),
-        "inter_packet_delay": 0.01,
-        "description": "DrDoS DNS - UDP port 53, small queries",
+        "payload_size": (1350, 1400),
+        "inter_packet_delay": 0.000001,
+        "packets_per_flow": (2, 2),
+        "forward_only": True,
+        "description": "DrDoS DNS - UDP port 53, small queries (~2 packets/flow, forward-only)",
     },
     "DrDoS_NTP": {
         "protocol": "udp",
@@ -117,6 +103,7 @@ ATTACK_CLASSES = {
         "payload_size": (400, 450),
         "inter_packet_delay": 0.00001,
         "packets_per_flow": (52, 75),
+        "forward_only": True,
         "description": "DrDoS NTP - UDP port 123, monlist-style requests (~64 packets/flow, forward-only)",
     },
     "DrDoS_SSDP": {
@@ -124,27 +111,35 @@ ATTACK_CLASSES = {
         "dst_port": 1900,
         "payload_size": (300, 500),
         "inter_packet_delay": 0.03,
+        "packets_per_flow": (2, 2),
+        "forward_only": True,
         "description": "DrDoS SSDP - UDP port 1900, M-SEARCH requests",
     },
     "DrDoS_SNMP": {
         "protocol": "udp",
         "dst_port": 161,
-        "payload_size": (64, 128),
-        "inter_packet_delay": 0.02,
-        "description": "DrDoS SNMP - UDP port 161, GET requests",
+        "payload_size": (1335, 1445),
+        "inter_packet_delay": 0.00001,
+        "packets_per_flow": (2, 2),
+        "forward_only": True,
+        "description": "DrDoS SNMP - UDP port 161, GET requests (~2 packets/flow, forward-only)",
     },
     "DrDoS_LDAP": {
         "protocol": "udp",
         "dst_port": 389,
-        "payload_size": (100, 300),
-        "inter_packet_delay": 0.03,
-        "description": "DrDoS LDAP - UDP port 389, search requests",
+        "payload_size": (1460, 1468),
+        "inter_packet_delay": 0.000001,
+        "packets_per_flow": (2, 2),
+        "forward_only": True,
+        "description": "DrDoS LDAP - UDP port 389, search requests (~2 packets/flow, forward-only)",
     },
     "DrDoS_MSSQL": {
         "protocol": "udp",
         "dst_port": 1433,
         "payload_size": (128, 512),
         "inter_packet_delay": 0.03,
+        "packets_per_flow": (2, 2),
+        "forward_only": True,
         "description": "DrDoS MSSQL - UDP port 1433",
     },
     "DrDoS_NetBIOS": {
@@ -152,6 +147,8 @@ ATTACK_CLASSES = {
         "dst_port": 137,
         "payload_size": (48, 96),
         "inter_packet_delay": 0.03,
+        "packets_per_flow": (2, 2),
+        "forward_only": True,
         "description": "DrDoS NetBIOS - UDP port 137",
     },
     "DrDoS_UDP": {
@@ -160,7 +157,39 @@ ATTACK_CLASSES = {
         "dst_port_range": (1024, 65535),
         "payload_size": (200, 1000),
         "inter_packet_delay": 0.005,
+        "packets_per_flow": (2, 2),
+        "forward_only": True,
         "description": "DrDoS UDP - UDP flood, random ports, larger payloads",
+    },
+    "Syn": {
+        "protocol": "tcp",
+        "dst_port": 8080,
+        "flags": "S",
+        "payload_size": (4, 8),
+        "inter_packet_delay": 0,
+        "packets_per_flow": (1, 1),
+        "forward_only": True,
+        "description": "TCP SYN flood - single SYN per flow, server responds with SYN-ACK",
+    },
+    "UDP": {
+        "protocol": "udp",
+        "dst_port": None,
+        "dst_port_range": (1024, 65535),
+        "payload_size": (64, 512),
+        "inter_packet_delay": 0.01,
+        "packets_per_flow": (2, 2),
+        "forward_only": True,
+        "description": "UDP flood - random ports, variable payload sizes",
+    },
+    "UDP-lag": {
+        "protocol": "udp",
+        "dst_port": None,
+        "dst_port_range": (1024, 65535),
+        "payload_size": (32, 128),
+        "inter_packet_delay": 0.5,
+        "packets_per_flow": (2, 2),
+        "forward_only": True,
+        "description": "Low-rate UDP - delays between packets, longer duration",
     },
 }
 
@@ -234,6 +263,7 @@ def generate_traffic(
     print(f"  Inter-packet delay: {delay}s")
     if "packets_per_flow" in config:
         print(f"  Packets per flow: {config['packets_per_flow'][0]}-{config['packets_per_flow'][1]}")
+        print(f"  Forward-only: {config.get('forward_only', True)}")
     print()
 
     sent = 0
@@ -242,18 +272,21 @@ def generate_traffic(
     for i in range(count):
         src_ip = SOURCE_IP
 
-        # For DrDoS_NTP: use a fixed source port per flow so all packets
-        # in the flow share the same 5-tuple (producing ~64 packets/flow).
-        # For all other classes: random source port per packet (1 packet/flow).
+        # Determine packets per flow for this flow
         if "packets_per_flow" in config:
             src_port = src_port_base + i
             pkt_count = random.randint(
                 config["packets_per_flow"][0],
                 config["packets_per_flow"][1],
             )
+            forward_only = config.get("forward_only", True)
+            fwd_bwd_ratio = config.get("fwd_bwd_ratio", 1)
         else:
+            # Legacy mode: 1 packet per flow, random source port
             src_port = random.randint(40000, 60000)
             pkt_count = 1
+            forward_only = False
+            fwd_bwd_ratio = 1
 
         if config["dst_port"] is not None:
             dst_port = config["dst_port"]
@@ -261,10 +294,23 @@ def generate_traffic(
             lo, hi = config["dst_port_range"]
             dst_port = random.randint(lo, hi)
 
-        for j in range(pkt_count):
+        # Calculate forward and backward packet counts
+        if forward_only:
+            fwd_packets = pkt_count
+            bwd_packets = 0
+        else:
+            # Bidirectional: split packets according to fwd_bwd_ratio
+            # e.g., ratio=3 means 3 forward + 1 backward per cycle
+            cycle_size = fwd_bwd_ratio + 1
+            full_cycles = pkt_count // cycle_size
+            remainder = pkt_count % cycle_size
+            fwd_packets = full_cycles * fwd_bwd_ratio + min(remainder, fwd_bwd_ratio)
+            bwd_packets = full_cycles + max(0, remainder - fwd_bwd_ratio)
+
+        # Send forward packets: client -> server
+        for j in range(fwd_packets):
             payload = _random_payload(payload_min, payload_max)
 
-            # Attack packet: client -> server
             pkt = _build_packet(
                 src_ip=src_ip,
                 dst_ip=dst_ip,
@@ -278,30 +324,37 @@ def generate_traffic(
             send(pkt, verbose=False)
             sent += 1
 
-            # Response packet: server -> client (completes bidirectional flow)
-            # Only for non-DrDoS_NTP classes. DrDoS_NTP is forward-only
-            # in the training data (backward packets ≈ 0).
-            if "packets_per_flow" not in config:
-                resp_payload = _random_payload(*RESPONSE_PAYLOAD_SIZE)
-                resp_pkt = _build_packet(
-                    src_ip=dst_ip,
-                    dst_ip=src_ip,
-                    src_port=dst_port,
-                    dst_port=src_port,
-                    protocol=protocol,
-                    payload=resp_payload,
-                )
+            # Intra-flow delay: space packets within the flow to produce
+            # realistic flow durations matching the training data.
+            if delay > 0 and j < fwd_packets - 1:
+                time.sleep(delay)
 
-                send(resp_pkt, verbose=False)
-                sent += 1
+        # Send backward packets: server -> client
+        for j in range(bwd_packets):
+            resp_payload = _random_payload(*RESPONSE_PAYLOAD_SIZE)
+            resp_pkt = _build_packet(
+                src_ip=dst_ip,
+                dst_ip=src_ip,
+                src_port=dst_port,
+                dst_port=src_port,
+                protocol=protocol,
+                payload=resp_payload,
+            )
+
+            send(resp_pkt, verbose=False)
+            sent += 1
+
+            # Intra-flow delay between backward packets.
+            if delay > 0 and j < bwd_packets - 1:
+                time.sleep(delay)
 
         if sent % 10 == 0:
-            total_expected = count * 2 if "packets_per_flow" not in config else "varies"
             print(f"  Sent {sent} packets", end="\r")
 
-        # Rate limiting: sleep based on configured inter-packet delay
-        if delay > 0:
-            time.sleep(delay)
+        # Inter-flow gap: small pause between flows (does not affect
+        # per-flow duration metrics).
+        if delay > 0 and fwd_packets + bwd_packets > 1:
+            time.sleep(delay / 10)
 
     print(f"\n  Sent {sent} packets for {attack_class}")
 

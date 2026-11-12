@@ -273,6 +273,7 @@ class DetectionEventAdapter:
         port,
         diagnostic_base_features=None,
         ground_truth=None,
+        protocol="tcp",
     ) -> Dict[str, Any]:
         """
         Convert one engineered feature row into a complete
@@ -358,6 +359,7 @@ class DetectionEventAdapter:
             "client": str(client),
             "server": str(server),
             "port": int(port),
+            "protocol": str(protocol),
 
             "predicted_label": predicted_class,
 
