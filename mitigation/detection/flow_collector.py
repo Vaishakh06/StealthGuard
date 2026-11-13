@@ -2,7 +2,9 @@ import argparse
 import os
 import signal
 import time
+from collections import Counter
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Dict, List, Tuple
 
 import pandas as pd
@@ -13,6 +15,7 @@ from mitigation.detection.inference_adapter import InferenceAdapter
 
 FLOW_TIMEOUT = 5.0
 WINDOW_SIZE = 100
+WINDOW_STRIDE = 20
 
 STAT_FEATURES = [
     "Flow Duration",
@@ -361,8 +364,12 @@ class FlowCollector:
 
 class LiveDetectionPipeline:
     """
-    Live traffic -> 100-flow window -> frozen inference
+    Live traffic -> 100-flow sliding window (stride=20) -> frozen inference
     -> DetectionEventAdapter -> MitigationController.
+
+    Matches the training pipeline windowing strategy:
+      - Window size: 100 flows
+      - Stride: 20 flows (80% overlap between consecutive windows)
     """
 
     CLIENT_IP = "172.28.0.10"
@@ -388,6 +395,10 @@ class LiveDetectionPipeline:
 
         self.flow_buffer: List[Flow] = []
 
+        # Track last mitigation key to prevent duplicate firewall actions
+        # across overlapping windows (key: client, server, port, predicted_class)
+        self.last_mitigation_key = None
+
     def add_flow(self, flow: Flow):
 
         self.flow_buffer.append(flow)
@@ -399,11 +410,12 @@ class LiveDetectionPipeline:
 
         if len(self.flow_buffer) >= WINDOW_SIZE:
             self.run_inference()
+            # Advance buffer by stride for sliding window (matches training)
+            self.flow_buffer = self.flow_buffer[WINDOW_STRIDE:]
 
     def run_inference(self):
 
         window = self.flow_buffer[:WINDOW_SIZE]
-        self.flow_buffer = self.flow_buffer[WINDOW_SIZE:]
 
         flow_window = pd.DataFrame(
             [flow.to_features() for flow in window],
@@ -420,17 +432,26 @@ class LiveDetectionPipeline:
                 self.inference.window_to_features(flow_window)
             )
 
-            # Reuse the existing detection and AnomalyFlow logic.
-            # Use actual flow values from the first flow in the window.
-            first_flow = window[0]
+            # Use most common metadata values across the window
+            # (matches training's majority-vote label approach for metadata).
+            src_ips = [f.src_ip for f in window]
+            dst_ips = [f.dst_ip for f in window]
+            dst_ports = [f.dst_port for f in window]
+            protocols = [f.protocol for f in window]
+
+            client = Counter(src_ips).most_common(1)[0][0]
+            server = Counter(dst_ips).most_common(1)[0][0]
+            port = Counter(dst_ports).most_common(1)[0][0]
+            protocol_num = Counter(protocols).most_common(1)[0][0]
+            flow_protocol = "tcp" if protocol_num == 6 else "udp"
+
             ground_truth = os.getenv("STEALTHGUARD_GROUND_TRUTH")
-            # Convert IP protocol number to string for firewall rules.
-            flow_protocol = "tcp" if first_flow.protocol == 6 else "udp"
+
             event = self.event_adapter.create_event(
                 engineered_features=engineered_features,
-                client=first_flow.src_ip,
-                server=first_flow.dst_ip,
-                port=first_flow.dst_port,
+                client=client,
+                server=server,
+                port=port,
                 diagnostic_base_features=flow_window,
                 ground_truth=ground_truth,
                 protocol=flow_protocol,
@@ -440,6 +461,59 @@ class LiveDetectionPipeline:
             print("-" * 70)
             print(event)
 
+            # Duplicate mitigation prevention across overlapping windows.
+            # Consecutive sliding windows share 80% of their flows, so they
+            # are likely to produce the same prediction. Skip duplicate
+            # firewall actions for the same attack.
+            predicted_class = event["predicted_label"]
+            mitigation_key = (client, server, port, predicted_class)
+
+            if mitigation_key == self.last_mitigation_key:
+                # Same attack already mitigated - suppress duplicate firewall
+                # action but still log the detection event.
+                result = {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "status": "SUPPRESSED",
+                    "client": client,
+                    "server": server,
+                    "port": port,
+                    "protocol": flow_protocol,
+                    "predicted_label": predicted_class,
+                    "confidence": event["confidence"],
+                    "confidence_uncertainty": event.get(
+                        "confidence_uncertainty"
+                    ),
+                    "renyi_evidence": event.get("renyi_evidence"),
+                    "confidence_normalized": event.get(
+                        "confidence_normalized"
+                    ),
+                    "renyi_normalized": event.get("renyi_normalized"),
+                    "anomalyflow_score": event["anomalyflow_score"],
+                    "decision_state": event["decision_state"],
+                    "security_severity": event["security_severity"],
+                    "mitigation_action": event["mitigation_action"],
+                    "mitigation_priority": event["mitigation_priority"],
+                    "alert_generated": event["alert_generated"],
+                    "alert_level": event["alert_level"],
+                    "alert_type": event["alert_type"],
+                    "mitigation_outcome": "DUPLICATE_SUPPRESSED",
+                }
+
+                if event.get("ground_truth") is not None:
+                    result["ground_truth"] = event["ground_truth"]
+                if event.get("experiment_id") is not None:
+                    result["experiment_id"] = event["experiment_id"]
+                if event.get("window_id") is not None:
+                    result["window_id"] = event["window_id"]
+
+                self.controller._write_event(result)
+                print("\nLIVE MITIGATION RESULT (DUPLICATE SUPPRESSED)")
+                print("-" * 70)
+                print(result)
+                return result
+
+            self.last_mitigation_key = mitigation_key
+
             # Pass the event to the existing mitigation controller.
             mitigation_result = self.controller.process_event(event)
 
@@ -447,11 +521,15 @@ class LiveDetectionPipeline:
             print("-" * 70)
             print(mitigation_result)
 
+            return mitigation_result
+
         except Exception as exc:
             print("\nLIVE INTEGRATION ERROR")
             print("-" * 70)
             print(f"{type(exc).__name__}: {exc}")
-            raise
+            # Do not re-raise: buffer advancement in add_flow() must continue
+            # even if inference fails for one window.
+            return None
 
 
 
