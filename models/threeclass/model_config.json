@@ -1,0 +1,20 @@
+{
+  "input_channels": 1,
+  "num_classes": 3,
+  "architecture": "CNN + BiLSTM + Attention",
+  "input_shape": [
+    1,
+    48
+  ],
+  "class_map": {
+    "0": "BENIGN",
+    "1": "TCP_DDoS",
+    "2": "UDP_DDoS"
+  },
+  "training_samples": 2707556,
+  "validation_samples": 338444,
+  "test_samples": 338445,
+  "training_time_seconds": 2053.3668699264526,
+  "test_accuracy": 0.9928880615757361,
+  "macro_f1": 0.9570830693496996
+}
