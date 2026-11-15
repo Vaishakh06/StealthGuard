@@ -56,3 +56,37 @@
 {"timestamp": "2026-11-12T04:25:34.712823+00:00", "event": "block_removed"}
 {"timestamp": "2026-11-12T04:25:36.216075+00:00", "event": "rate_limit_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 123, "rate_per_second": 20, "burst_packets": 40, "duration_seconds": 30}
 {"timestamp": "2026-11-12T04:26:06.996291+00:00", "event": "rate_limit_removed"}
+{"timestamp": "2026-11-14T19:04:05.477003+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 123, "duration_seconds": 15}
+{"timestamp": "2026-11-14T19:04:21.160340+00:00", "event": "block_removed"}
+{"timestamp": "2026-11-14T19:04:22.792097+00:00", "event": "rate_limit_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 123, "rate_per_second": 20, "burst_packets": 40, "duration_seconds": 30}
+{"timestamp": "2026-11-14T19:04:53.428498+00:00", "event": "rate_limit_removed"}
+{"timestamp": "2026-11-14T19:09:10.342578+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 1433, "duration_seconds": 15}
+{"timestamp": "2026-11-14T19:09:25.899383+00:00", "event": "block_removed"}
+{"timestamp": "2026-11-14T19:09:26.780048+00:00", "event": "rate_limit_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 1433, "rate_per_second": 20, "burst_packets": 40, "duration_seconds": 30}
+{"timestamp": "2026-11-14T19:09:57.086766+00:00", "event": "rate_limit_removed"}
+{"timestamp": "2026-11-14T19:12:05.405584+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 53, "duration_seconds": 15}
+{"timestamp": "2026-11-14T19:12:20.723144+00:00", "event": "block_removed"}
+{"timestamp": "2026-11-14T19:12:21.352349+00:00", "event": "rate_limit_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 53, "rate_per_second": 20, "burst_packets": 40, "duration_seconds": 30}
+{"timestamp": "2026-11-14T19:12:51.759697+00:00", "event": "rate_limit_removed"}
+{"timestamp": "2026-11-14T19:17:59.526917+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 123, "duration_seconds": 15}
+{"timestamp": "2026-11-14T19:18:39.221163+00:00", "event": "block_removed"}
+{"timestamp": "2026-11-14T19:18:40.639638+00:00", "event": "rate_limit_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 123, "rate_per_second": 20, "burst_packets": 40, "duration_seconds": 30}
+{"timestamp": "2026-11-14T19:19:11.065009+00:00", "event": "rate_limit_removed"}
+{"timestamp": "2026-11-14T19:25:48.678307+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 161, "duration_seconds": 15}
+{"timestamp": "2026-11-14T19:26:04.090959+00:00", "event": "block_removed"}
+{"timestamp": "2026-11-14T19:26:04.821242+00:00", "event": "rate_limit_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 161, "rate_per_second": 20, "burst_packets": 40, "duration_seconds": 30}
+{"timestamp": "2026-11-14T19:26:37.630002+00:00", "event": "rate_limit_removed"}
+{"timestamp": "2026-11-14T19:27:14.622969+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 1433, "duration_seconds": 15}
+{"timestamp": "2026-11-14T19:27:20.347390+00:00", "event": "block_removed"}
+{"timestamp": "2026-11-14T19:40:42.957231+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 389, "duration_seconds": 15}
+{"timestamp": "2026-11-14T19:40:58.727276+00:00", "event": "block_removed"}
+{"timestamp": "2026-11-14T19:41:00.468678+00:00", "event": "rate_limit_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 389, "rate_per_second": 20, "burst_packets": 40, "duration_seconds": 30}
+{"timestamp": "2026-11-14T19:41:30.939079+00:00", "event": "rate_limit_removed"}
+{"timestamp": "2026-11-14T19:58:20.137409+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 65250, "duration_seconds": 15}
+{"timestamp": "2026-11-14T19:58:35.623934+00:00", "event": "block_removed"}
+{"timestamp": "2026-11-14T19:58:36.511935+00:00", "event": "rate_limit_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 65250, "rate_per_second": 20, "burst_packets": 40, "duration_seconds": 30}
+{"timestamp": "2026-11-14T19:59:06.828269+00:00", "event": "rate_limit_removed"}
+{"timestamp": "2026-11-14T20:01:00.673014+00:00", "event": "block_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 7019, "duration_seconds": 15}
+{"timestamp": "2026-11-14T20:01:16.088973+00:00", "event": "block_removed"}
+{"timestamp": "2026-11-14T20:01:16.908731+00:00", "event": "rate_limit_applied", "client": "172.28.0.10", "server": "172.29.0.10", "port": 7019, "rate_per_second": 20, "burst_packets": 40, "duration_seconds": 30}
+{"timestamp": "2026-11-14T20:01:47.468034+00:00", "event": "rate_limit_removed"}

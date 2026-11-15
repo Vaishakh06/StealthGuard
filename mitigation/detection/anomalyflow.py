@@ -49,6 +49,8 @@ DDOS_CLASSES = {
     "TFTP",
     "UDP",
     "UDP-lag",
+    "TCP_DDoS",
+    "UDP_DDoS",
 }
 
 

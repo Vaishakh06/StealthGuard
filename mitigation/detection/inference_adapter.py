@@ -46,9 +46,9 @@ import torch.nn as nn
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-MODEL_PATH = PROJECT_ROOT / "models" / "hybrid_model.pth"
-SCALER_PATH = PROJECT_ROOT / "models" / "scaler.pkl"
-LABEL_ENCODER_PATH = PROJECT_ROOT / "models" / "label_encoder.pkl"
+MODEL_PATH = PROJECT_ROOT / "models" / "threeclass" / "best_model.pth"
+SCALER_PATH = PROJECT_ROOT / "models" / "threeclass" / "scaler_3class.pkl"
+LABEL_ENCODER_PATH = PROJECT_ROOT / "models" / "threeclass" / "label_encoder_3class.pkl"
 
 
 # ============================================================
@@ -481,7 +481,7 @@ class InferenceAdapter:
 
         self.model = HybridDDoSModel(
             input_channels=1,
-            num_classes=17
+            num_classes=3
         )
 
         checkpoint = torch.load(
@@ -537,10 +537,10 @@ class InferenceAdapter:
                 "exactly 48 features."
             )
 
-        if len(self.label_encoder.classes_) != 17:
+        if len(self.label_encoder) != 3:
             raise ValueError(
                 "Label encoder does not contain "
-                "the expected 17 classes."
+                "the expected 3 classes."
             )
 
     # --------------------------------------------------------
@@ -756,11 +756,17 @@ class InferenceAdapter:
             .numpy()
         )
 
-        predicted_labels = (
-            self.label_encoder.inverse_transform(
-                predicted_indices
+        # Handle both dict label encoder and sklearn LabelEncoder
+        if isinstance(self.label_encoder, dict):
+            predicted_labels = [
+                self.label_encoder[int(idx)] for idx in predicted_indices
+            ]
+        else:
+            predicted_labels = (
+                self.label_encoder.inverse_transform(
+                    predicted_indices
+                )
             )
-        )
 
         results = []
 

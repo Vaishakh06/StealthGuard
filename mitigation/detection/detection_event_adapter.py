@@ -41,11 +41,13 @@ from mitigation.detection.anomalyflow import AnomalyFlow
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-CALIBRATION_PATH = (
+# 3-class calibration is optional; falls back to identity normalization
+# when no calibration file exists for the 3-class model.
+CALIBRATION_PATH_3CLASS = (
     PROJECT_ROOT
     / "models"
     / "evaluation"
-    / "anomalyflow_calibration.json"
+    / "anomalyflow_calibration_3class.json"
 )
 
 RENYI_COLUMNS = [
@@ -59,6 +61,15 @@ RENYI_COLUMNS = [
     "Average Packet Size_Renyi",
 ]
 
+# Default weights and thresholds when no calibration file is available.
+# These match the existing 17-class configuration values but are applied
+# without normalization (identity scalers) until 3-class calibration data
+# is collected.
+DEFAULT_CONFIDENCE_WEIGHT = 0.5
+DEFAULT_RENYI_WEIGHT = 0.5
+DEFAULT_NORMAL_THRESHOLD = 0.25
+DEFAULT_HIGH_EVIDENCE_THRESHOLD = 0.40
+
 
 class DetectionEventAdapter:
     """
@@ -69,7 +80,7 @@ class DetectionEventAdapter:
     def __init__(
         self,
         inference_adapter=None,
-        calibration_path=CALIBRATION_PATH,
+        calibration_path=None,
     ):
         self.inference = (
             inference_adapter
@@ -77,58 +88,100 @@ class DetectionEventAdapter:
             else InferenceAdapter()
         )
 
-        self.calibration_path = Path(calibration_path)
+        # Default configuration used when no calibration file exists.
+        # These values match the existing 17-class configuration but are
+        # applied with identity (no-op) scalers until 3-class calibration
+        # data is collected from live traffic.
+        self.calibration = None
+        self.confidence_weight = DEFAULT_CONFIDENCE_WEIGHT
+        self.renyi_weight = DEFAULT_RENYI_WEIGHT
+        self.normal_threshold = DEFAULT_NORMAL_THRESHOLD
+        self.high_evidence_threshold = DEFAULT_HIGH_EVIDENCE_THRESHOLD
 
-        if not self.calibration_path.exists():
-            raise FileNotFoundError(
-                "Missing AnomalyFlow calibration file:\n"
-                f"  {self.calibration_path}"
+        if calibration_path is not None:
+            self.calibration_path = Path(calibration_path)
+        else:
+            self.calibration_path = CALIBRATION_PATH_3CLASS
+
+        if self.calibration_path.exists():
+            # Load existing calibration file (17-class or 3-class).
+            with open(
+                self.calibration_path,
+                "r",
+                encoding="utf-8",
+            ) as f:
+                self.calibration = json.load(f)
+
+            self.renyi_standard_scaler = (
+                self._build_standard_scaler(
+                    self.calibration[
+                        "validation_renyi_standard_scaler"
+                    ]
+                )
             )
 
-        with open(
-            self.calibration_path,
-            "r",
-            encoding="utf-8",
-        ) as f:
-            self.calibration = json.load(f)
-
-        self.renyi_standard_scaler = (
-            self._build_standard_scaler(
-                self.calibration[
-                    "validation_renyi_standard_scaler"
-                ]
+            self.confidence_scaler = (
+                self._build_minmax_scaler(
+                    self.calibration[
+                        "confidence_minmax_scaler"
+                    ]
+                )
             )
-        )
 
-        self.confidence_scaler = (
-            self._build_minmax_scaler(
-                self.calibration[
-                    "confidence_minmax_scaler"
-                ]
+            self.renyi_evidence_scaler = (
+                self._build_minmax_scaler(
+                    self.calibration[
+                        "renyi_evidence_minmax_scaler"
+                    ]
+                )
             )
-        )
 
-        self.renyi_evidence_scaler = (
-            self._build_minmax_scaler(
-                self.calibration[
-                    "renyi_evidence_minmax_scaler"
-                ]
-            )
-        )
+            self.confidence_weight = self.calibration[
+                "weights"
+            ]["confidence"]
+            self.renyi_weight = self.calibration[
+                "weights"
+            ]["renyi"]
+            self.normal_threshold = self.calibration[
+                "thresholds"
+            ]["low"]
+            self.high_evidence_threshold = self.calibration[
+                "thresholds"
+            ]["high"]
+        else:
+            # No calibration file available: use identity scalers.
+            # confidence_normalized = confidence_uncertainty (raw)
+            # renyi_normalized = renyi_evidence (raw)
+            # This is a safe no-op fallback that preserves the values
+            # without rescaling them. Documented as a temporary measure
+            # until 3-class calibration data is collected.
+            self.renyi_standard_scaler = StandardScaler()
+            self.renyi_standard_scaler.mean_ = np.zeros(8, dtype=np.float64)
+            self.renyi_standard_scaler.scale_ = np.ones(8, dtype=np.float64)
+            self.renyi_standard_scaler.var_ = np.ones(8, dtype=np.float64)
+            self.renyi_standard_scaler.n_features_in_ = 8
+
+            self.confidence_scaler = MinMaxScaler()
+            self.confidence_scaler.data_min_ = np.array([0.0], dtype=np.float64)
+            self.confidence_scaler.data_max_ = np.array([1.0], dtype=np.float64)
+            self.confidence_scaler.data_range_ = np.array([1.0], dtype=np.float64)
+            self.confidence_scaler.scale_ = np.array([1.0], dtype=np.float64)
+            self.confidence_scaler.min_ = np.array([0.0], dtype=np.float64)
+            self.confidence_scaler.n_features_in_ = 1
+
+            self.renyi_evidence_scaler = MinMaxScaler()
+            self.renyi_evidence_scaler.data_min_ = np.array([0.0], dtype=np.float64)
+            self.renyi_evidence_scaler.data_max_ = np.array([1.0], dtype=np.float64)
+            self.renyi_evidence_scaler.data_range_ = np.array([1.0], dtype=np.float64)
+            self.renyi_evidence_scaler.scale_ = np.array([1.0], dtype=np.float64)
+            self.renyi_evidence_scaler.min_ = np.array([0.0], dtype=np.float64)
+            self.renyi_evidence_scaler.n_features_in_ = 1
 
         self.anomalyflow = AnomalyFlow(
-            confidence_weight=self.calibration[
-                "weights"
-            ]["confidence"],
-            renyi_weight=self.calibration[
-                "weights"
-            ]["renyi"],
-            normal_threshold=self.calibration[
-                "thresholds"
-            ]["low"],
-            high_evidence_threshold=self.calibration[
-                "thresholds"
-            ]["high"],
+            confidence_weight=self.confidence_weight,
+            renyi_weight=self.renyi_weight,
+            normal_threshold=self.normal_threshold,
+            high_evidence_threshold=self.high_evidence_threshold,
         )
 
     # ---------------------------------------------------------

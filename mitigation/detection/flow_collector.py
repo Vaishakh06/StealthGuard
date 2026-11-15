@@ -1,10 +1,12 @@
 import argparse
 import os
 import signal
+import threading
 import time
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 import pandas as pd
@@ -12,6 +14,8 @@ from scapy.all import IP, TCP, UDP, sniff
 
 from mitigation.detection.inference_adapter import InferenceAdapter
 
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 FLOW_TIMEOUT = 5.0
 WINDOW_SIZE = 100
@@ -377,7 +381,11 @@ class LiveDetectionPipeline:
     SERVER_PORT = 8080
 
     def __init__(self):
-        self.inference = InferenceAdapter()
+        self.inference = InferenceAdapter(
+            model_path=PROJECT_ROOT / "models" / "threeclass" / "best_model.pth",
+            scaler_path=PROJECT_ROOT / "models" / "threeclass" / "scaler_3class.pkl",
+            label_encoder_path=PROJECT_ROOT / "models" / "threeclass" / "label_encoder_3class.pkl",
+        )
 
         from mitigation.detection.detection_event_adapter import (
             DetectionEventAdapter
@@ -395,23 +403,47 @@ class LiveDetectionPipeline:
 
         self.flow_buffer: List[Flow] = []
 
+        # Thread-safe lock for buffer access (reset can be triggered by signal).
+        self._buffer_lock = threading.Lock()
+
         # Track last mitigation key to prevent duplicate firewall actions
         # across overlapping windows (key: client, server, port, predicted_class)
         self.last_mitigation_key = None
 
+    def reset_buffer(self):
+        """Clear the pending inference-window buffer without interrupting capture.
+
+        Safe to call from a signal handler. Only clears the buffered flows
+        waiting for the next inference window. Packet capture continues
+        uninterrupted. New flows start filling the buffer from empty.
+        """
+        with self._buffer_lock:
+            self.flow_buffer.clear()
+            self.last_mitigation_key = None
+
+        print("\n" + "!" * 70)
+        print("INFERENCE BUFFER RESET")
+        print("!" * 70)
+        print("Pending inference window cleared.")
+        print("Packet capture continues uninterrupted.")
+        print("Next inference window starts fresh from new flows.")
+        print("!" * 70 + "\n")
+
     def add_flow(self, flow: Flow):
 
-        self.flow_buffer.append(flow)
+        with self._buffer_lock:
+            self.flow_buffer.append(flow)
+            buffer_len = len(self.flow_buffer)
 
         print(
             f"\nCompleted flow added to detection buffer: "
-            f"{len(self.flow_buffer)}/{WINDOW_SIZE}"
+            f"{buffer_len}/{WINDOW_SIZE}"
         )
 
-        if len(self.flow_buffer) >= WINDOW_SIZE:
+        if buffer_len >= WINDOW_SIZE:
             self.run_inference()
-            # Advance buffer by stride for sliding window (matches training)
-            self.flow_buffer = self.flow_buffer[WINDOW_STRIDE:]
+            with self._buffer_lock:
+                self.flow_buffer = self.flow_buffer[WINDOW_STRIDE:]
 
     def run_inference(self):
 
@@ -602,9 +634,13 @@ def main():
         nonlocal shutdown_requested
         shutdown_requested = True
 
+    def reset_buffer_handler(signum, frame):
+        detection_pipeline.reset_buffer()
+
     previous_handlers = {
         signal.SIGINT: signal.getsignal(signal.SIGINT),
         signal.SIGTERM: signal.getsignal(signal.SIGTERM),
+        signal.SIGUSR1: signal.getsignal(signal.SIGUSR1),
     }
 
     print("=" * 70)
@@ -614,6 +650,7 @@ def main():
     print("\nInterface: all gateway interfaces")
     print("Capturing client <-> server traffic...")
     print("100 completed flows -> frozen ML inference")
+    print("Send SIGUSR1 to reset inference buffer between attack tests.")
     print("Press Ctrl+C to stop.\n")
 
     parser = argparse.ArgumentParser(
@@ -629,6 +666,7 @@ def main():
     try:
         signal.signal(signal.SIGINT, request_shutdown)
         signal.signal(signal.SIGTERM, request_shutdown)
+        signal.signal(signal.SIGUSR1, reset_buffer_handler)
 
         while not shutdown_requested:
             sniff(
