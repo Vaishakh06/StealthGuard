@@ -26,9 +26,14 @@ logger = logging.getLogger("mitigation-controller")
 ALLOWED_CLIENT_NETWORK = "172.28."
 ALLOWED_SERVER_NETWORK = "172.29."
 
-# Only enforcement currently implemented and tested
-# by Person 1's firewall controller.
-FIREWALL_ACTION = "BLOCK"
+# Firewall durations (seconds) – centralised here and passed through
+# to firewall_controller. Override via environment if needed.
+import os
+
+RATE_LIMIT_DURATION = int(os.getenv("STEALTHGUARD_RATE_LIMIT_DURATION", "45"))
+BLOCK_DURATION = int(os.getenv("STEALTHGUARD_BLOCK_DURATION", "60"))
+RATE_LIMIT_RATE = int(os.getenv("STEALTHGUARD_RATE_LIMIT_RATE", "20"))
+RATE_LIMIT_BURST = int(os.getenv("STEALTHGUARD_RATE_LIMIT_BURST", "40"))
 
 
 class MitigationController:
@@ -74,23 +79,20 @@ class MitigationController:
 
         timestamp = datetime.now(timezone.utc).isoformat()
 
-        # LOW currently produces ALERT_AND_LOG, so no firewall
-        # enforcement is required.
-        if recommendation.action in {
-            "NO_ACTION",
-            "MONITOR",
-            "INVESTIGATE",
-            "ALERT_AND_LOG",
-        }:
+        action = recommendation.action
+
+        # No firewall enforcement for ALLOW or MONITOR actions.
+        if action in {"ALLOW", "MONITOR"}:
             status = "DRY_RUN" if self.dry_run else "NO_FIREWALL_ACTION"
             outcome = "SIMULATED" if self.dry_run else "NOT_REQUIRED"
 
-        # MEDIUM/HIGH request actions that are not currently
-        # implemented by the verified firewall controller.
-        elif recommendation.action in {
-            "RATE_LIMIT",
-            "BLOCK_AND_RATE_LIMIT",
-        }:
+        # INVESTIGATE is informational only – no firewall action.
+        elif action == "INVESTIGATE":
+            status = "DRY_RUN" if self.dry_run else "NO_FIREWALL_ACTION"
+            outcome = "SIMULATED" if self.dry_run else "NOT_REQUIRED"
+
+        # RATE_LIMIT applies a temporary rate-limit rule only.
+        elif action == "RATE_LIMIT":
             if self.dry_run:
                 status = "DRY_RUN"
                 outcome = "SIMULATED"
@@ -100,42 +102,42 @@ class MitigationController:
                 port = int(event["port"])
                 protocol = str(event.get("protocol", "tcp"))
 
-                if recommendation.action == "BLOCK_AND_RATE_LIMIT":
-                    firewall_controller.apply_temporary_block(
-                        client_ip=client_ip,
-                        server_ip=server_ip,
-                        port=port,
-                        protocol=protocol,
-                        duration=15,
-                    )
-                    firewall_controller.apply_temporary_rate_limit(
-                        client_ip=client_ip,
-                        server_ip=server_ip,
-                        port=port,
-                        protocol=protocol,
-                        duration=30,
-                        rate=20,
-                        burst=40,
-                    )
-                    status = "APPLIED"
-                    outcome = "BLOCK_AND_RATE_LIMIT_APPLIED"
-                else:
-                    firewall_controller.apply_temporary_rate_limit(
-                        client_ip=client_ip,
-                        server_ip=server_ip,
-                        port=port,
-                        protocol=protocol,
-                        duration=30,
-                        rate=20,
-                        burst=40,
-                    )
-                    status = "APPLIED"
-                    outcome = "RATE_LIMIT_APPLIED"
+                firewall_controller.apply_temporary_rate_limit(
+                    client_ip=client_ip,
+                    server_ip=server_ip,
+                    port=port,
+                    protocol=protocol,
+                    duration=RATE_LIMIT_DURATION,
+                    rate=RATE_LIMIT_RATE,
+                    burst=RATE_LIMIT_BURST,
+                )
+                status = "APPLIED"
+                outcome = "RATE_LIMIT_APPLIED"
+
+        # TEMPORARY_BLOCK applies a temporary block rule only (no rate limit).
+        elif action == "TEMPORARY_BLOCK":
+            if self.dry_run:
+                status = "DRY_RUN"
+                outcome = "SIMULATED"
+            else:
+                client_ip = str(event["client"])
+                server_ip = str(event["server"])
+                port = int(event["port"])
+                protocol = str(event.get("protocol", "tcp"))
+
+                firewall_controller.apply_temporary_block(
+                    client_ip=client_ip,
+                    server_ip=server_ip,
+                    port=port,
+                    protocol=protocol,
+                    duration=BLOCK_DURATION,
+                )
+                status = "APPLIED"
+                outcome = "TEMPORARY_BLOCK_APPLIED"
 
         else:
             raise ValueError(
-                f"Unsupported mitigation action: "
-                f"{recommendation.action}"
+                f"Unsupported mitigation action: {action}"
             )
 
         result = {
@@ -149,7 +151,7 @@ class MitigationController:
             "anomalyflow_score": event["anomalyflow_score"],
             "decision_state": event["decision_state"],
             "security_severity": event["security_severity"],
-            "mitigation_action": recommendation.action,
+            "mitigation_action": action,
             "mitigation_priority": recommendation.priority,
             "alert_generated": recommendation.alert_generated,
             "alert_level": recommendation.alert_level,

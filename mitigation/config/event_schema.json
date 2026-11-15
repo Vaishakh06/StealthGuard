@@ -14,19 +14,19 @@
     "dry_run"
   ],
   "allowed_actions": [
-    "NO_ACTION",
+    "ALLOW",
     "MONITOR",
-    "INVESTIGATE",
-    "ALERT_AND_LOG",
     "RATE_LIMIT",
-    "BLOCK_AND_RATE_LIMIT"
+    "TEMPORARY_BLOCK",
+    "INVESTIGATE"
   ],
   "allowed_severities": [
-    "NONE",
+    "NORMAL",
     "LOW",
     "MEDIUM",
     "HIGH",
-    "CRITICAL"
+    "MONITOR",
+    "INVESTIGATE"
   ],
   "allowed_decision_states": [
     "NORMAL",

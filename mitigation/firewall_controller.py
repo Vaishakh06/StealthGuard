@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 import signal
 import subprocess
 import threading
@@ -19,6 +20,15 @@ CLIENT_IP = "172.28.0.10"
 SERVER_IP = "172.29.0.10"
 RULE_COMMENT = "temporary-lab-mitigation"
 RATE_LIMIT_RULE_COMMENT = "temporary-lab-rate-limit"
+
+# -------------------------------------------------------------------
+# Centralised mitigation durations (seconds).
+# Override via environment variables if needed.
+# -------------------------------------------------------------------
+BLOCK_DURATION = int(os.getenv("STEALTHGUARD_BLOCK_DURATION", "60"))
+RATE_LIMIT_DURATION = int(os.getenv("STEALTHGUARD_RATE_LIMIT_DURATION", "45"))
+RATE_LIMIT_RATE = int(os.getenv("STEALTHGUARD_RATE_LIMIT_RATE", "20"))
+RATE_LIMIT_BURST = int(os.getenv("STEALTHGUARD_RATE_LIMIT_BURST", "40"))
 
 LOG_FILE = Path(__file__).resolve().parent / "controller" / "mitigation_actions.jsonl"
 
@@ -132,7 +142,7 @@ def add_rate_limit(client_ip, server_ip, port, protocol, rate=20, burst=40):
 
 def apply_temporary_rate_limit(
     client_ip=CLIENT_IP, server_ip=SERVER_IP, port=None,
-    protocol="tcp", duration=30, rate=20, burst=40,
+    protocol="tcp", duration=RATE_LIMIT_DURATION, rate=RATE_LIMIT_RATE, burst=RATE_LIMIT_BURST,
 ):
     if not 1 <= duration <= 60:
         raise ValueError("Duration must be between 1 and 60 seconds.")
@@ -176,7 +186,7 @@ def apply_temporary_rate_limit(
 
 def apply_temporary_block(
     client_ip=CLIENT_IP, server_ip=SERVER_IP, port=None,
-    protocol="tcp", duration=15,
+    protocol="tcp", duration=BLOCK_DURATION,
 ):
     if not 1 <= duration <= 60:
         raise ValueError("Duration must be between 1 and 60 seconds.")
@@ -220,7 +230,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Apply a temporary, allowlisted lab firewall block."
     )
-    parser.add_argument("--duration", type=int, default=15)
+    parser.add_argument("--duration", type=int, default=BLOCK_DURATION)
     args = parser.parse_args()
 
     if not 1 <= args.duration <= 60:

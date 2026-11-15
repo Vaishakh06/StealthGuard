@@ -50,13 +50,16 @@ SEVERITY_COLOURS = {
     "MEDIUM": "#f59e0b",   # amber-500
     "HIGH": "#ef4444",     # red-500
     "CRITICAL": "#7f1d1d", # red-900
+    "MONITOR": "#6b7280",  # gray-500
+    "INVESTIGATE": "#8b5cf6",  # violet-500
 }
 
 ACTION_COLOURS = {
-    "NO_ACTION": "#6b7280",      # gray-500
-    "ALERT_AND_LOG": "#3b82f6",   # blue-500
-    "RATE_LIMIT": "#f59e0b",      # amber-500
-    "BLOCK_AND_RATE_LIMIT": "#ef4444",  # red-500
+    "ALLOW": "#10b981",      # emerald-500
+    "MONITOR": "#3b82f6",    # blue-500
+    "RATE_LIMIT": "#f59e0b", # amber-500
+    "TEMPORARY_BLOCK": "#ef4444",  # red-500
+    "INVESTIGATE": "#8b5cf6",  # violet-500
 }
 
 STATUS_COLOURS = {
@@ -68,24 +71,23 @@ STATUS_COLOURS = {
     "DRY_RUN": "#3b82f6",
     "SIMULATED": "#3b82f6",
     "NOT_REQUIRED": "#6b7280",
-    "BLOCK_APPLIED": "#ef4444",
+    "TEMPORARY_BLOCK_APPLIED": "#ef4444",
     "RATE_LIMIT_APPLIED": "#f59e0b",
     "UNKNOWN": "#9ca3af",
 }
 
 # ---------------------------------------------------------------------------
-# Allowed severities / decision states from the existing event schema
+# Allowed severities / decision states / actions for the 3-class model
 # ---------------------------------------------------------------------------
 
-ALLOWED_SEVERITIES = ["NORMAL", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
-ALLOWED_DECISION_STATES = ["NORMAL", "SUSPICIOUS", "HIGH_EVIDENCE", "ATTACK"]
+ALLOWED_SEVERITIES = ["NORMAL", "LOW", "MEDIUM", "HIGH", "MONITOR", "INVESTIGATE"]
+ALLOWED_DECISION_STATES = ["NORMAL", "SUSPICIOUS", "HIGH_EVIDENCE"]
 ALLOWED_ACTIONS = [
-    "NO_ACTION",
+    "ALLOW",
     "MONITOR",
-    "INVESTIGATE",
-    "ALERT_AND_LOG",
     "RATE_LIMIT",
-    "BLOCK_AND_RATE_LIMIT",
+    "TEMPORARY_BLOCK",
+    "INVESTIGATE",
 ]
 
 MODES = ["sample", "live"]

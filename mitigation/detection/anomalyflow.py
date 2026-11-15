@@ -30,25 +30,12 @@ LABEL_ENCODER_PATH = PROJECT_ROOT / "models" / "label_encoder.pkl"
 
 
 # -------------------------------------------------------------------
-# Existing model classes
+# 3-class model classes
 # -------------------------------------------------------------------
 
+# Only TCP_DDoS and UDP_DDoS are treated as attack classes.
+# BENIGN is not in this set and follows the Non-DDoS severity path.
 DDOS_CLASSES = {
-    "DrDoS_DNS",
-    "DrDoS_LDAP",
-    "DrDoS_MSSQL",
-    "DrDoS_NTP",
-    "DrDoS_NetBIOS",
-    "DrDoS_SNMP",
-    "DrDoS_SSDP",
-    "DrDoS_UDP",
-    "MSSQL",
-    "NetBIOS",
-    "Portmap",
-    "Syn",
-    "TFTP",
-    "UDP",
-    "UDP-lag",
     "TCP_DDoS",
     "UDP_DDoS",
 }
@@ -251,7 +238,7 @@ def run_test():
     # ---------------------------------------------------------------
 
     result = anomalyflow.evaluate(
-        predicted_class="DrDoS_UDP",
+        predicted_class="TCP_DDoS",
         confidence_normalized=0.10,
         renyi_normalized=0.10,
     )
@@ -269,7 +256,7 @@ def run_test():
     # ---------------------------------------------------------------
 
     result = anomalyflow.evaluate(
-        predicted_class="DrDoS_UDP",
+        predicted_class="UDP_DDoS",
         confidence_normalized=0.30,
         renyi_normalized=0.30,
     )
@@ -287,7 +274,7 @@ def run_test():
     # ---------------------------------------------------------------
 
     result = anomalyflow.evaluate(
-        predicted_class="DrDoS_UDP",
+        predicted_class="TCP_DDoS",
         confidence_normalized=0.60,
         renyi_normalized=0.60,
     )

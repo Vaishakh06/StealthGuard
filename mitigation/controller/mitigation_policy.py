@@ -3,14 +3,14 @@ from dataclasses import dataclass
 
 POLICY = {
     "NORMAL": {
-        "action": "NO_ACTION",
+        "action": "ALLOW",
         "priority": "NONE",
-        "simulation": "No mitigation required",
+        "simulation": "Traffic allowed, no mitigation required",
         "alert_generated": False,
         "alert_level": "NONE",
         "alert_type": "NONE",
     },
-    "MONITOR": {
+    "LOW": {
         "action": "MONITOR",
         "priority": "LOW",
         "simulation": "Traffic monitored for continued suspicious activity",
@@ -18,37 +18,39 @@ POLICY = {
         "alert_level": "LOW",
         "alert_type": "MONITORING",
     },
-    "INVESTIGATE": {
-        "action": "INVESTIGATE",
-        "priority": "HIGH",
-        "simulation": "Security investigation triggered",
-        "alert_generated": True,
-        "alert_level": "HIGH",
-        "alert_type": "INVESTIGATION",
-    },
-    "LOW": {
-        "action": "ALERT_AND_LOG",
-        "priority": "LOW",
-        "simulation": "DDoS alert generated and traffic event logged",
-        "alert_generated": True,
-        "alert_level": "LOW",
-        "alert_type": "DDOS_DETECTED",
-    },
     "MEDIUM": {
         "action": "RATE_LIMIT",
         "priority": "MEDIUM",
-        "simulation": "Traffic rate limiting simulated",
+        "simulation": "Traffic rate limited",
         "alert_generated": True,
         "alert_level": "MEDIUM",
         "alert_type": "RATE_LIMIT_TRIGGERED",
     },
     "HIGH": {
-        "action": "BLOCK_AND_RATE_LIMIT",
+        "action": "TEMPORARY_BLOCK",
         "priority": "CRITICAL",
-        "simulation": "Traffic blocking and rate limiting simulated",
+        "simulation": "Source IP temporarily blocked",
         "alert_generated": True,
         "alert_level": "CRITICAL",
-        "alert_type": "BLOCK_TRIGGERED",
+        "alert_type": "TEMPORARY_BLOCK",
+    },
+    # Non-DDoS edge-case severities (BENIGN + SUSPICIOUS / HIGH_EVIDENCE).
+    # These are informational only: no firewall enforcement.
+    "MONITOR": {
+        "action": "MONITOR",
+        "priority": "LOW",
+        "simulation": "Non-DDoS suspicious traffic monitored",
+        "alert_generated": True,
+        "alert_level": "LOW",
+        "alert_type": "MONITORING",
+    },
+    "INVESTIGATE": {
+        "action": "INVESTIGATE",
+        "priority": "MEDIUM",
+        "simulation": "Non-DDoS high-evidence traffic flagged for investigation",
+        "alert_generated": True,
+        "alert_level": "MEDIUM",
+        "alert_type": "INVESTIGATION",
     },
 }
 
