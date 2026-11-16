@@ -15,16 +15,20 @@ B.E. Major Project – A real-time, network-based DDoS detection and automated m
 7. [Dashboard](#dashboard)
 8. [Docker Lab Environment](#docker-lab-environment)
 9. [Configuration](#configuration)
-10. [Quick Start](#quick-start)
-11. [Traffic Generator](#traffic-generator)
+10. [Traffic Generator](#traffic-generator)
+11. [Running the StealthGuard Live Demonstration (Ubuntu VM)](#running-the-stealthguard-live-demonstration-ubuntu-vm)
 12. [Known Limitations](#known-limitations)
 13. [Project Decisions](#project-decisions)
+14. [Contributing](#contributing)
+15. [License](#license)
 
 ---
 
 ## 1. Overview
 
 StealthGuard is a network-based DDoS detection and automated mitigation system developed as a B.E. major project. It detects DDoS attacks in real time using ML-based flow classification, assesses security severity via the AnomalyFlow decision layer, and applies automated firewall mitigation using nftables. A Streamlit dashboard provides real-time visualization of detection and mitigation results.
+
+All project execution — Docker containers, flow collector, traffic generator, detection pipeline, and dashboard — runs inside an Ubuntu VirtualBox VM at `/mnt/StealthGuard`.
 
 ### Key Features
 
@@ -106,7 +110,8 @@ StealthGuard/
 │   │   ├── target_validator.py        # Target validation
 │   │   ├── action_validator.py        # Action validation
 │   │   ├── executor.py                # Mitigation executor
-│   │   └── event_logger.py            # Event logging
+│   │   ├── event_logger.py            # Event logging
+│   │   └── mitigation_actions.jsonl   # Firewall action lifecycle log
 │   ├── detection/
 │   │   ├── flow_collector.py          # Live flow collector & inference pipeline
 │   │   ├── inference_adapter.py       # Inference adapter (feature extraction → model prediction, loads 3-class artifacts)
@@ -118,12 +123,12 @@ StealthGuard/
 │   │   └── lab_config.json            # Lab configuration
 │   └── logs/
 │       └── mitigation_events.jsonl    # Live detection event log
-├── mitigation_actions.jsonl           # Firewall action lifecycle log
 ├── dashboard/
 │   └── (see above)
 ├── network_lab/
 │   ├── attack_generator/
-│   │   └── traffic_generator.py       # Traffic generator for testing (updated bidirectional attacks)
+│   │   ├── traffic_generator.py       # Traffic generator for testing (with --ground-truth)
+│   │   └── http_burst.py              # BENIGN traffic generator (with --ground-truth)
 │   ├── client/                        # Client container Dockerfile
 │   ├── gateway/                       # Gateway container Dockerfile
 │   ├── protected_server/              # Protected server container Dockerfile
@@ -133,7 +138,7 @@ StealthGuard/
 │   │   ├── engineered_dataset.csv     # Engineered training dataset (17-class)
 │   │   ├── engineered_3class.csv      # Engineered 3-class dataset
 │   │   ├── engineered_dataset.pkl     # Pickled engineered dataset
-│   │   └── prepared_3class.py         # 3-class dataset preparation script
+│   │   └── prepare_3class_dataset.py  # 3-class dataset preparation script
 │   └── raw/                           # Raw dataset (CIC-DDoS2019)
 ├── models/
 │   ├── hybrid_model.pth               # Trained 17-class model (frozen, untouched)
@@ -174,9 +179,9 @@ Docker Traffic → Flow Collector → Feature Extraction → 100-Flow Window →
 
 ### Flow Collection
 
-The flow collector runs on the host machine (not inside a container) and captures network traffic using Scapy. It:
+The flow collector runs on the Ubuntu VM host (not inside a container) and captures network traffic using Scapy. It:
 
-1. Captures packets on the Docker bridge interface (e.g., `br-a56e51d39a9c`)
+1. Captures packets on the Docker bridge interface
 2. Groups packets into bidirectional flows (5-tuple: src_ip, dst_ip, src_port, dst_port, protocol)
 3. Computes 8 base features per flow:
    - Flow Duration
@@ -197,10 +202,11 @@ Between individual attack tests, flows from a previous attack class can remain i
 - Send `SIGUSR1` to the flow collector process to clear the pending inference buffer
 - Packet capture continues uninterrupted
 - New flows start filling the buffer from empty
+- Detection logs are NOT erased
 
 ```bash
-pgrep -f flow_collector.py    # Get collector PID
-kill -USR1 <pid>              # Reset buffer
+pgrep -af flow_collector    # Get collector PID
+sudo kill -USR1 <pid>       # Reset buffer
 ```
 
 ### Feature Engineering
@@ -297,7 +303,7 @@ The 17-class model is preserved for reference and comparison but is **not used**
 
 ---
 
-## 5. Event Schema
+## 6. Event Schema
 
 ### Detection Events (`mitigation/logs/mitigation_events.jsonl`)
 
@@ -343,7 +349,7 @@ The 17-class model is preserved for reference and comparison but is **not used**
 
 ---
 
-## 6. Dashboard
+## 7. Dashboard
 
 The Streamlit dashboard provides real-time monitoring with six sections:
 
@@ -359,9 +365,9 @@ The Streamlit dashboard provides real-time monitoring with six sections:
 ### Running the Dashboard
 
 ```bash
-cd dashboard
-pip install -r requirements.txt
-streamlit run app.py
+cd /mnt/StealthGuard/dashboard
+source /home/vboxuser/stealthguard-venv/bin/activate
+/home/vboxuser/stealthguard-venv/bin/python -m streamlit run app.py
 ```
 
 Access at `http://localhost:8501`.
@@ -370,7 +376,7 @@ Access at `http://localhost:8501`.
 
 ---
 
-## 7. Docker Lab Environment
+## 8. Docker Lab Environment
 
 The project includes an isolated Docker network for safe experimentation:
 
@@ -388,7 +394,7 @@ The project includes an isolated Docker network for safe experimentation:
 ### Starting the Lab
 
 ```bash
-cd network_lab
+cd /mnt/StealthGuard/network_lab
 docker compose up -d
 ```
 
@@ -396,7 +402,7 @@ The gateway has IP forwarding enabled (`net.ipv4.ip_forward=1`) and nftables ava
 
 ---
 
-## 8. Configuration
+## 9. Configuration
 
 ### Dashboard Configuration (`dashboard/config.py`)
 
@@ -438,44 +444,35 @@ Allowed decision states: NORMAL, SUSPICIOUS, HIGH_EVIDENCE
 
 ---
 
-## 8. Quick Start
+## 10. Traffic Generator
 
-### Prerequisites
-
-- Docker and Docker Compose
-- Python 3.11+
-- Streamlit, pandas, plotly, torch, scikit-learn
-
-### Step 1: Start the Docker Lab
+The traffic generator (`network_lab/attack_generator/traffic_generator.py`) creates controlled DDoS traffic for testing:
 
 ```bash
-cd /C/CSBS/major_project_git/StealthGuard/network_lab
-docker compose up -d
+python /workspace/traffic_generator.py --class <class_name> --count <count> --ground-truth <BENIGN|TCP_DDoS|UDP_DDoS>
 ```
 
-### Step 2: Start the Flow Collector (on Host Machine)
+| Option | Description |
+|--------|-------------|
+| `--class` | Attack class to generate (required) |
+| `--count` | Number of flows to generate (default: 100) |
+| `--rate` | Packets per second (default: 10.0) |
+| `--dst` | Destination IP (default: 172.29.0.10) |
+| `--ground-truth` | Expected 3-class label for evaluation metadata (BENIGN, TCP_DDoS, UDP_DDoS) |
+
+### BENIGN Traffic Generator
+
+The standalone script `network_lab/attack_generator/http_burst.py` generates normal HTTP traffic:
 
 ```bash
-cd /C/CSBS/major_project_git/StealthGuard
-source /path/to/venv/bin/activate
-sudo python mitigation/detection/flow_collector.py --iface br-<bridge-interface>
+python /workspace/http_burst.py --ground-truth BENIGN
 ```
 
-The bridge interface can be found with `ip link show | grep br` or `docker network inspect <network-name>`.
-
-### Step 3: Generate Traffic
-
-```bash
-# Copy traffic generator to client
-docker cp /C/CSBS/major_project_git/StealthGuard/network_lab/attack_generator/traffic_generator.py cp-client:/workspace/
-
-# Reset buffer between attack tests (optional but recommended)
-pgrep -f flow_collector.py
-kill -USR1 <collector-pid>
-
-# Generate traffic for a specific class
-docker exec cp-client python /workspace/traffic_generator.py --class DrDoS_NTP --count 100
-```
+| Option | Description |
+|--------|-------------|
+| `--count` | Number of HTTP requests to generate (default: 100) |
+| `--delay` | Delay between requests in seconds (default: 0.1) |
+| `--ground-truth` | Expected 3-class label for evaluation metadata |
 
 ### Supported Attack Classes (3-Class Mapping)
 
@@ -497,61 +494,6 @@ docker exec cp-client python /workspace/traffic_generator.py --class DrDoS_NTP -
 | UDP | UDP | UDP_DDoS |
 | UDP-lag | UDP | UDP_DDoS |
 
-### Example Commands
-
-```bash
-# BENIGN traffic
-docker exec cp-client python /workspace/traffic_generator.py --class http_burst --count 100
-
-# TCP_DDoS
-docker exec cp-client python /workspace/traffic_generator.py --class Portmap --count 100
-docker exec cp-client python /workspace/traffic_generator.py --class MSSQL --count 100
-
-# UDP_DDoS
-docker exec cp-client python /workspace/traffic_generator.py --class DrDoS_NTP --count 100
-docker exec cp-client python /workspace/traffic_generator.py --class DrDoS_DNS --count 100
-docker exec cp-client python /workspace/traffic_generator.py --class UDP --count 100
-docker exec cp-client python /workspace/traffic_generator.py --class UDP-lag --count 100
-```
-
-### Step 4: Inspect Results
-
-```bash
-# Detection events
-tail -f mitigation/logs/mitigation_events.jsonl
-
-# Firewall actions
-tail -f mitigation/controller/mitigation_actions.jsonl
-
-# nftables rules on gateway
-docker exec cp-gateway nft list ruleset
-```
-
-### Step 5: Run the Dashboard
-
-```bash
-cd /C/CSBS/major_project_git/StealthGuard/dashboard
-source /path/to/venv/bin/activate
-python -m streamlit run app.py
-```
-
-Access at `http://localhost:8501`.
-
----
-
-## 9. Traffic Generator
-
-The traffic generator (`network_lab/attack_generator/traffic_generator.py`) creates controlled DDoS traffic for testing:
-
-```bash
-python /workspace/traffic_generator.py --class <class_name> --count <count>
-```
-
-| Option | Description |
-|--------|-------------|
-| `--class` | Attack class to generate (required) |
-| `--count` | Number of flows to generate (default: 100) |
-
 ### Bidirectional Attack Support
 
 The following attacks now generate bidirectional traffic (forward + backward packets) to better match CIC-DDoS2019 training distributions:
@@ -568,37 +510,190 @@ All attacks produce at least 2 packets per flow to satisfy the flow collector's 
 
 ---
 
-## 10. Mitigation Policy (Severity → Action)
+## 11. Running the StealthGuard Live Demonstration (Ubuntu VM)
 
-The mitigation policy follows the original multi-signal approach:
+All demonstration commands below run inside the Ubuntu VirtualBox VM at `/mnt/StealthGuard`. The flow collector runs on the VM host; Docker containers run on the same VM. The traffic generator executes inside the `cp-client` container.
 
+### Terminal 1 — Start the Flow Collector
+
+This terminal must remain running throughout the demonstration. It captures traffic on the Docker bridge interface and runs inference on every 100-flow window.
+
+```bash
+sudo mount -t vboxsf StealthGuard /mnt/StealthGuard
+cd /mnt/StealthGuard
+source /home/vboxuser/stealthguard-venv/bin/activate
+sudo /home/vboxuser/stealthguard-venv/bin/python -m mitigation.detection.flow_collector
 ```
-Model Prediction → Confidence + Rényi → AnomalyFlow Score → Decision State → Security Severity → Mitigation Action
+
+The collector prints diagnostic output for each completed flow and each inference window. Keep this terminal open; do not close it during testing.
+
+### Terminal 2 — Start Docker Containers and Prepare the Generator
+
+```bash
+docker start cp-gateway cp-client cp-protected-server
 ```
 
-### Severity to Action Mapping
+Copy the traffic generator into the client container:
 
-| Severity | Decision State | Class Type | Mitigation Action | Firewall Enforcement | Duration |
-|----------|---------------|------------|-------------------|---------------------|----------|
-| NORMAL | NORMAL | BENIGN | ALLOW | None | N/A |
-| NORMAL | NORMAL | TCP_DDoS/UDP_DDoS | MONITOR | None | N/A |
-| LOW | NORMAL | TCP_DDoS/UDP_DDoS | MONITOR | None | N/A |
-| MONITOR | SUSPICIOUS | BENIGN | MONITOR | None | N/A |
-| MEDIUM | SUSPICIOUS | TCP_DDoS/UDP_DDoS | RATE_LIMIT | Rate limit | 45s |
-| HIGH | HIGH_EVIDENCE | TCP_DDoS/UDP_DDoS | TEMPORARY_BLOCK | Block | 60s |
-| INVESTIGATE | HIGH_EVIDENCE | BENIGN | INVESTIGATE | None | N/A |
+```bash
+docker cp /mnt/StealthGuard/network_lab/attack_generator/traffic_generator.py cp-client:/workspace/traffic_generator.py
+docker cp /mnt/StealthGuard/network_lab/attack_generator/http_burst.py cp-client:/workspace/http_burst.py
+```
 
-### BENIGN Protection
+Find the collector PID (identify the actual Python process, not `sudo` or `grep`):
 
-BENIGN traffic never triggers attack mitigation:
-- BENIGN + NORMAL → NORMAL → ALLOW (no firewall action)
-- BENIGN + HIGH_EVIDENCE → INVESTIGATE → INVESTIGATE (investigation only, no firewall block)
+```bash
+pgrep -af flow_collector
+```
 
-TCP_DDoS and UDP_DDoS follow the appropriate severity assessment path with full mitigation options.
+Store the correct PID in a shell variable for convenience:
+
+```bash
+COLLECTOR_PID=<actual_python_collector_pid>
+```
+
+Reset the inference buffer between individual attack tests:
+
+```bash
+sudo kill -USR1 "$COLLECTOR_PID"
+```
+
+This clears only the pending inference buffer; packet capture continues uninterrupted and detection logs are not erased.
+
+### Terminal 3 — Individual Live Test Commands
+
+Run each test from Terminal 3 (inside the VM). Reset the buffer between tests to prevent flows from the previous attack from mixing into the next inference window.
+
+**Test 1 — BENIGN**
+
+```bash
+docker exec cp-client python /workspace/http_burst.py --ground-truth BENIGN
+```
+
+Reset buffer:
+
+```bash
+sudo kill -USR1 "$COLLECTOR_PID"
+```
+
+**Test 2 — DrDoS_DNS (UDP_DDoS)**
+
+```bash
+docker exec cp-client python /workspace/traffic_generator.py --class DrDoS_DNS --count 100 --ground-truth UDP_DDoS
+```
+
+Reset buffer:
+
+```bash
+sudo kill -USR1 "$COLLECTOR_PID"
+```
+
+**Test 3 — Syn (TCP_DDoS)**
+
+```bash
+docker exec cp-client python /workspace/traffic_generator.py --class Syn --count 100 --ground-truth TCP_DDoS
+```
+
+Reset buffer:
+
+```bash
+sudo kill -USR1 "$COLLECTOR_PID"
+```
+
+**Test 4 — DrDoS_SNMP (UDP_DDoS)**
+
+```bash
+docker exec cp-client python /workspace/traffic_generator.py --class DrDoS_SNMP --count 100 --ground-truth UDP_DDoS
+```
+
+Reset buffer:
+
+```bash
+sudo kill -USR1 "$COLLECTOR_PID"
+```
+
+**Test 5 — DrDoS_LDAP (UDP_DDoS)**
+
+```bash
+docker exec cp-client python /workspace/traffic_generator.py --class DrDoS_LDAP --count 100 --ground-truth UDP_DDoS
+```
+
+Reset buffer:
+
+```bash
+sudo kill -USR1 "$COLLECTOR_PID"
+```
+
+**Test 6 — TFTP (UDP_DDoS)**
+
+```bash
+docker exec cp-client python /workspace/traffic_generator.py --class TFTP --count 100 --ground-truth UDP_DDoS
+```
+
+Expected predictions:
+- BENIGN → `BENIGN`
+- DrDoS_DNS → `UDP_DDoS`
+- Syn → `TCP_DDoS`
+- DrDoS_SNMP → `UDP_DDoS`
+- DrDoS_LDAP → `UDP_DDoS`
+- TFTP → `UDP_DDoS`
+
+`--ground-truth` is evaluation metadata only; it is recorded in the JSONL log but **never** influences model inference, predictions, confidence, severity, or mitigation decisions.
+
+### Terminal 4 — Inspect Detection and Mitigation Logs
+
+Inspect detection events (ground truth, predicted class, confidence, severity, mitigation action):
+
+```bash
+tail -f /mnt/StealthGuard/mitigation/logs/mitigation_events.jsonl
+```
+
+Inspect firewall action lifecycle:
+
+```bash
+tail -f /mnt/StealthGuard/mitigation/controller/mitigation_actions.jsonl
+```
+
+Inspect nftables rules on the gateway:
+
+```bash
+sudo nft list ruleset
+```
+
+A typical detection event record contains:
+
+```json
+{
+  "timestamp": "2026-11-16T...",
+  "status": "APPLIED",
+  "client": "172.28.0.10",
+  "server": "172.29.0.10",
+  "port": 8080,
+  "protocol": "udp",
+  "predicted_label": "UDP_DDoS",
+  "confidence": 0.91,
+  "anomalyflow_score": 0.18,
+  "decision_state": "NORMAL",
+  "security_severity": "LOW",
+  "mitigation_action": "MONITOR",
+  "mitigation_outcome": "SIMULATED",
+  "ground_truth": "UDP_DDoS"
+}
+```
+
+### Launching the Dashboard
+
+```bash
+cd /mnt/StealthGuard/dashboard
+source /home/vboxuser/stealthguard-venv/bin/activate
+/home/vboxuser/stealthguard-venv/bin/python -m streamlit run app.py
+```
+
+Access at `http://localhost:8501`. Switch to **LIVE** mode in the sidebar to read real StealthGuard JSONL logs.
 
 ---
 
-## 11. Known Limitations
+## 12. Known Limitations
 
 | Limitation | Description |
 |------------|-------------|
@@ -613,7 +708,7 @@ TCP_DDoS and UDP_DDoS follow the appropriate severity assessment path with full 
 
 ---
 
-## 12. Project Decisions
+## 13. Project Decisions
 
 Key architectural decisions are documented in `PROJECT_DECISIONS_FINAL_CORRECTED.md`. Key decisions include:
 
@@ -630,7 +725,7 @@ Key architectural decisions are documented in `PROJECT_DECISIONS_FINAL_CORRECTED
 
 ---
 
-## 13. Contributing
+## 14. Contributing
 
 This is a B.E. major project. The architecture is designed to be modular:
 
