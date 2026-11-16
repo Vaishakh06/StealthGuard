@@ -17,6 +17,7 @@ Usage (from inside cp-client):
 """
 
 import argparse
+import os
 import random
 import sys
 import time
@@ -407,6 +408,12 @@ def main():
         default=SERVER_IP,
         help=f"Destination IP (default: {SERVER_IP})",
     )
+    parser.add_argument(
+        "--ground-truth",
+        dest="ground_truth",
+        choices=["BENIGN", "TCP_DDoS", "UDP_DDoS"],
+        help="Expected 3-class label for evaluation metadata (written to shared ground truth file)",
+    )
 
     args = parser.parse_args()
 
@@ -419,6 +426,26 @@ def main():
 
     if not (1 <= args.count <= 10000):
         parser.error("--count must be between 1 and 10000")
+
+    # Write expected 3-class ground truth to shared file for the host-side
+    # flow collector. The compose file mounts ./attack_generator to
+    # /workspace/attack_generator in cp-client, so this file is visible to
+    # the collector on the host at network_lab/attack_generator/ground_truth.txt.
+    # This lets the user set ground truth per attack test without restarting
+    # the collector. Ground truth is evaluation metadata only and never
+    # influences model inference, predictions, or mitigation decisions.
+    # If --ground-truth is omitted, no value is written so the collector sees
+    # ground_truth as None for that window.
+    if args.ground_truth:
+        gt_path = "/workspace/attack_generator/ground_truth.txt"
+        try:
+            with open(gt_path, "w", encoding="utf-8") as f:
+                f.write(args.ground_truth.strip().upper() + "\n")
+            print(f"Ground truth written to {gt_path}: {args.ground_truth}")
+        except OSError as exc:
+            print(
+                f"Warning: could not write ground truth to {gt_path}: {exc}"
+            )
 
     generate_traffic(
         attack_class=args.attack_class,

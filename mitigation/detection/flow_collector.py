@@ -32,6 +32,32 @@ STAT_FEATURES = [
     "Average Packet Size",
 ]
 
+# Shared ground truth file path (on the host). The Docker compose file mounts
+# ./attack_generator to /workspace/attack_generator in cp-client, so when the
+# traffic generator writes to /workspace/attack_generator/ground_truth.txt
+# inside the container, it appears at this path on the host. The collector
+# reads this file each inference window so ground truth can be updated between
+# attack tests without restarting the collector.
+GROUND_TRUTH_FILE = PROJECT_ROOT / "network_lab" / "attack_generator" / "ground_truth.txt"
+
+
+def _read_ground_truth() -> str | None:
+    """Read expected 3-class ground truth from the shared file.
+
+    Ground truth is evaluation metadata only and never influences model
+    inference, predictions, confidence, severity, or mitigation decisions.
+    If the shared file does not exist or is empty, ground truth is None
+    for that inference window.
+    """
+    try:
+        with open(GROUND_TRUTH_FILE, "r", encoding="utf-8") as f:
+            value = f.read().strip()
+            if value:
+                return value
+    except (OSError, FileNotFoundError):
+        pass
+    return None
+
 
 @dataclass
 class Flow:
@@ -477,7 +503,7 @@ class LiveDetectionPipeline:
             protocol_num = Counter(protocols).most_common(1)[0][0]
             flow_protocol = "tcp" if protocol_num == 6 else "udp"
 
-            ground_truth = os.getenv("STEALTHGUARD_GROUND_TRUTH")
+            ground_truth = _read_ground_truth()
 
             event = self.event_adapter.create_event(
                 engineered_features=engineered_features,
