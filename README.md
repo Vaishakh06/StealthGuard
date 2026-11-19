@@ -257,8 +257,13 @@ The model is a hybrid deep learning architecture:
 | Max epochs | 30 |
 | Early stopping patience | 5 |
 | Best validation loss | 0.2495 |
-| Best validation accuracy | 89.45% |
-| Test accuracy | 89.43% |
+| Best validation accuracy | 99.29% |
+| Test accuracy | 99.29% |
+| Macro F1 | 95.71% |
+| Training samples | 2,707,556 |
+| Validation samples | 338,444 |
+| Test samples | 338,445 |
+| Training time | ~34 minutes (GPU) |
 
 ### 3-Class Label Mapping
 
